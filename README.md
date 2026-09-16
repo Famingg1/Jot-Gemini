@@ -6,7 +6,7 @@
 
 **[Gemini 3.5 Transcribe](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-transcribe) Demo. Hold a key. Speak. It types.**
 
-Smart dictation for macOS that puts polished text wherever your cursor is.
+Smart dictation for macOS and Windows that puts polished text wherever your cursor is.
 
 <sub>Created by [Ammaar Reshi](https://x.com/ammaar) · Apache 2.0 licensed</sub>
 
@@ -61,6 +61,17 @@ ride along with the audio, so the model hears "Kubernetes" instead of guessing
 email vs. chat vs. code is available too, in Settings → Dictation.
 
 ## Install
+
+### Windows 10/11
+
+1. Download `Jot-x.y.z-Windows-x64.exe` from [Releases](../../releases/latest) and run the installer.
+2. Paste a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey). It is encrypted with Windows' user-scoped credential protection.
+3. Allow microphone access when Windows asks.
+4. Hold **right Ctrl** to talk and release to insert. Press **Space** while holding to continue hands-free; press **right Ctrl** or **Esc** to stop or cancel.
+
+The shortcut is rebindable to Caps Lock or F8. Jot runs from the system tray, shows a compact non-focus-stealing HUD, keeps retryable audio locally, and can start with Windows. See [the Windows guide](docs/WINDOWS.md) for building, permissions, troubleshooting, and current platform details.
+
+### macOS 14+
 
 1. Download the latest `Jot-x.y.z.dmg` from [Releases](../../releases/latest).
 2. Drag Jot into **Applications** and launch it from there — apps run from a
@@ -124,6 +135,22 @@ built from — are in [docs/design/](docs/design/).
 
 ## Development
 
+### Windows
+
+Requires Windows 10/11, Node.js 22+, npm, and the built-in .NET Framework 4.x C# compiler.
+
+```powershell
+cd windows
+npm ci
+npm test
+npm run dev       # native helper + Electron app
+npm run build     # NSIS installer in windows/dist/
+```
+
+The Electron renderer is sandboxed and has no Node.js access. A small C# helper owns the low-level keyboard hook, secure-field check, foreground-window guard, and Unicode text insertion. Audio, Gemini requests, encrypted credentials, retention, and history stay in the main process or its tightly scoped preload bridge.
+
+### macOS
+
 Requires macOS 14+, Xcode 16+, and [xcodegen](https://github.com/yonaskolb/XcodeGen).
 The `.xcodeproj` is generated, not checked in.
 
@@ -149,6 +176,7 @@ JotCore/        all engine logic, headless and testable
   InsertionEngine/      the AX → paste → clipboard ladder
   HistoryStore/         GRDB index, recovery, retry queue, retention
 scripts/        build, test, icon, DMG, release
+windows/        Electron Windows app + native hotkey/insertion helper + NSIS packaging
 docs/           privacy, releasing, design specs, research
 ```
 

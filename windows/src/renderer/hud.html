@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'">
+  <title>Jot status</title>
+  <link rel="stylesheet" href="hud.css">
+</head>
+<body>
+  <div id="pill" class="pill idle" role="group" aria-label="Jot dictatie">
+    <button id="cancel" class="round cancel" type="button" aria-label="Annuleren" title="Annuleren">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+    </button>
+    <span id="leading" class="leading" aria-hidden="true">●</span>
+    <span id="timer" class="timer" hidden>0:00</span>
+    <span id="wave" class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    <span id="message" class="message">Dicteren</span>
+    <button id="paste" class="text-action" type="button" hidden>Plakken</button>
+    <button id="finish" class="round finish" type="button" aria-label="Klaar" title="Klaar">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>
+    </button>
+    <button id="idle-hit" class="idle-hit" type="button" aria-label="Start handsfree dictatie"></button>
+  </div>
+  <script src="hud.js"></script>
+</body>
+</html>

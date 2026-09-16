@@ -17,3 +17,16 @@ Jot.xcodeproj/
 Package.resolved
 build/
 xcuserdata/
+
+# Windows / Electron
+node_modules/
+windows/dist/
+windows/out/
+windows/native/bin/
+windows/.cache/
+windows/.capture-profile*/
+windows/screenshots/
+*.log
+
+# Tool caches
+.impeccable/

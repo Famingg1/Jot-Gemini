@@ -1,0 +1,69 @@
+{
+  "name": "jot-windows",
+  "version": "0.3.0",
+  "description": "Jot smart dictation for Windows, powered by Gemini",
+  "main": "src/main/index.js",
+  "author": "Jot contributors",
+  "license": "Apache-2.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run build:native && electron .",
+    "start": "npm run dev",
+    "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1",
+    "test": "node --test test/*.test.js",
+    "lint": "node --check src/main/index.js && node --check src/main/session-manager.js && node --check src/main/gemini.js && node --check src/main/storage.js && node --check src/preload.js && node --check src/renderer/app.js && node --check src/renderer/hud.js",
+    "build": "npm run lint && npm test && npm run build:native && electron-builder --win nsis --x64",
+    "pack": "npm run build:native && electron-builder --dir --win --x64"
+  },
+  "dependencies": {
+    "@google/genai": "^2.19.0"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.ammaar.jot",
+    "productName": "Jot",
+    "artifactName": "Jot-${version}-Windows-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "native/bin/JotNativeHelper.exe",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "native/bin/JotNativeHelper.exe"
+    ],
+    "extraResources": [
+      {
+        "from": "../App/Resources/Fonts",
+        "to": "fonts"
+      },
+      {
+        "from": "../App/Resources/Sounds",
+        "to": "sounds"
+      },
+      {
+        "from": "../docs/images/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "../docs/images/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Jot",
+      "runAfterFinish": true
+    }
+  }
+}
