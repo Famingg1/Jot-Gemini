@@ -21,13 +21,13 @@ class NativeHelper extends EventEmitter {
     this.lastError = '';
   }
 
-  start(hotkey = 'right-control') {
+  start(hotkey = 'right-control', noteHotkeys = [['F9']]) {
     if (this.process) return;
     const executable = this.packaged
       ? path.join(this.resourcesPath, 'app.asar.unpacked', 'native', 'bin', 'JotNativeHelper.exe')
       : path.join(this.appPath, 'native', 'bin', 'JotNativeHelper.exe');
     try {
-      this.process = spawn(executable, [Array.isArray(hotkey) ? require('../renderer/hotkeys').serialize(hotkey) : String(virtualKeys[hotkey] || virtualKeys['right-control'])], {
+      this.process = spawn(executable, [Array.isArray(hotkey) ? require('../renderer/hotkeys').serialize(hotkey) : String(virtualKeys[hotkey] || virtualKeys['right-control']), require('../renderer/hotkeys').serialize(noteHotkeys)], {
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe']
       });
@@ -72,8 +72,9 @@ class NativeHelper extends EventEmitter {
     catch { return false; }
   }
 
-  configure(hotkey) {
+  configure(hotkey, noteHotkeys = [['F9']]) {
     this.send(`CONFIG ${Array.isArray(hotkey) ? require('../renderer/hotkeys').serialize(hotkey) : virtualKeys[hotkey] || virtualKeys['right-control']}`);
+    this.send(`NOTE ${require('../renderer/hotkeys').serialize(noteHotkeys)}`);
   }
 
   typeText(text, expectedWindow) {

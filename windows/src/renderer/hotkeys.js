@@ -19,6 +19,8 @@
     return result;
   }
   const fromSettings = s => s.hotkeys?.length ? s.hotkeys : [[{'right-control':'ControlRight','caps-lock':'CapsLock',f8:'F8'}[s.hotkey]||'ControlRight']];
-  const api={keys,label,validate,fromSettings,serialize:value=>validate(value).map(chord=>chord.map(c=>keys[c][0]).join('+')).join(';')};
+  function validateGroups(dictation,notes){const a=validate(dictation),b=validate(notes);for(const x of a)for(const y of b)if(x.every(k=>y.includes(k))||y.every(k=>x.includes(k)))throw Error('De sneltoets voor Notetaker overlapt met dictatie. Kies een andere combinatie.');return {hotkeys:a,noteHotkeys:b};}
+  const notesFromSettings = s => s.noteHotkeys?.length ? s.noteHotkeys : [[Array.from({length:16},(_,i)=>'F'+(i+9)).find(key=>!fromSettings(s).some(chord=>chord.includes(key)))||'F9']];
+  const api={keys,label,validate,fromSettings,notesFromSettings,validateGroups,serialize:value=>validate(value).map(chord=>chord.map(c=>keys[c][0]).join('+')).join(';')};
   if(typeof module!=='undefined')module.exports=api;else root.TakkieHotkeys=api;
 })(globalThis);

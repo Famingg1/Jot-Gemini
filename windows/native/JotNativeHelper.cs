@@ -20,6 +20,7 @@ internal static class JotNativeHelper
     private const int VK_SPACE = 0x20;
     private const int EM_GETPASSWORDCHAR = 0x00D2;
     private static readonly ShortcutState shortcuts = new ShortcutState();
+    private static readonly ShortcutState noteShortcuts = new ShortcutState();
     private static readonly object shortcutGate = new object();
     private static bool hotkeyDown;
     private static IntPtr hook = IntPtr.Zero;
@@ -29,6 +30,7 @@ internal static class JotNativeHelper
     private static void Main(string[] args)
     {
         if (args.Length > 0) shortcuts.Configure(args[0]);
+        noteShortcuts.Configure(args.Length > 1 ? args[1] : "-");
         hook = SetHook(callback);
         if (hook == IntPtr.Zero)
         {
@@ -72,7 +74,10 @@ internal static class JotNativeHelper
 
                 bool swallow;
                 string transition;
-                lock(shortcutGate) { transition=shortcuts.Step(key, down, out swallow); }
+                bool noteSwallow;string noteTransition;
+                lock(shortcutGate) { transition=shortcuts.Step(key, down, out swallow);noteTransition=noteShortcuts.Step(key,down,out noteSwallow); }
+                if(noteTransition=="down")EmitForeground("note");
+                swallow=swallow||noteSwallow;
                 if (transition != null)
                 {
                     if (transition == "down")
@@ -121,6 +126,7 @@ internal static class JotNativeHelper
                 {
                     lock(shortcutGate) { shortcuts.Configure(parts[1]); hotkeyDown = false; }
                 }
+                else if(command=="NOTE"&&parts.Length>1){lock(shortcutGate){noteShortcuts.Configure(parts[1]);}}
                 else if (command == "TYPE" && parts.Length > 2)
                 {
                     long expected;

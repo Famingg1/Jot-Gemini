@@ -13,6 +13,7 @@ function createMeetingPanel({ manager, meetings, hardenWebContents }) {
     if (!window || event.sender !== window.webContents || event.senderFrame !== event.sender.mainFrame) throw Error('Deze actie is niet toegestaan.');
     if (action === 'get') return meetings.get(meetingId);
     if (action === 'notes') { const result = meetings.update(meetingId, { notes: value }); manager.emit('changed'); return result.notes; }
+    if (action === 'speaker') { if(!value||typeof value.id!=='string'||typeof value.name!=='string')throw Error('Ongeldige sprekernaam.');const current=meetings.get(meetingId);if(!current.transcript.segments.some(s=>s.speakerId===value.id))throw Error('Spreker niet gevonden.');meetings.update(meetingId,{speakers:{...current.speakers,[value.id]:value.name}});manager.emit('changed');return; }
     if (action === 'hide') { window.hide(); return; }
     if (action === 'retry') return manager.retry(meetingId);
     if (manager.active?.id !== meetingId) throw Error('Deze meeting neemt niet meer op.');

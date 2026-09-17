@@ -21,13 +21,45 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     const child=require('node:child_process').spawn('powershell.exe',['-NoProfile','-Command','$p=New-Object System.Media.SoundPlayer $env:JOT_TEST_TONE; $p.PlaySync();'],{windowsHide:true,env:{...process.env,JOT_TEST_TONE:file},stdio:'ignore'});
     return new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error('Test tone failed')));});
   };
+  if(process.env.JOT_LIVE_VERIFY){
+    let live;
+    try{
+      const real=new (require('../src/main/storage').JotStorage)(path.join(app.getPath('appData'),'jot-windows'),storage.safeStorage);
+      const key=real.apiKey();assert.ok(key,'Configured local Gemini key required');
+      const wav=fs.readFileSync(process.env.JOT_LIVE_WAV);let offset=12,pcm;
+      while(offset+8<wav.length){const size=wav.readUInt32LE(offset+4);if(wav.toString('ascii',offset,offset+4)==='data'){pcm=wav.subarray(offset+8,offset+8+size);break;}offset+=8+size+(size%2);}
+      assert.ok(pcm);let document,firstTextOffset=null,hadInterim=false;
+      live=new (require('../src/main/meeting-live').MeetingLive)({id:'synthetic-live-test',apiKey:key,language:'en-US',save:value=>{document=structuredClone(value);if(value.interim)hadInterim=true;if(firstTextOffset===null&&(value.interim||value.segments.length))firstTextOffset=live.offset;}});live.start();
+      for(let n=0;n<100&&!live.ready;n++)await sleep(100);assert.ok(live.ready,'Live endpoint setup must succeed');
+      for(let n=0;n<pcm.length;n+=3200){live.push({source:'mix',sampleOffset:n/2,pcm:pcm.subarray(n,n+3200)});await sleep(100);}
+      await live.flush();for(let n=0;n<70&&!document?.segments.length;n++)await sleep(100);
+      assert.ok(document?.segments.some(s=>/meeting|project|schedule/i.test(s.text)),'Expected synthetic meeting speech in real streaming response');await live.finish();
+      assert.ok(firstTextOffset<pcm.length/32,'Transcript arrives before audio playback ends');
+      results.ok=true;results.flows.live={transcript:document.segments.map(s=>s.text),firstTextOffset,audioDurationMs:pcm.length/32,hadInterim,syntheticAudio:true,provider:'gemini-3.5-transcribe-live'};
+    }catch(error){results.ok=false;results.errors.push(error.message);process.exitCode=1;}finally{live?.closeNow();fs.writeFileSync(path.join(root,'live-verification.json'),JSON.stringify(results,null,2));}
+    return;
+  }
+  if(process.env.JOT_HUD_NOTE_TEST){
+    try{
+      await sleep(600);hudWindow.showInactive();const hj=code=>hudWindow.webContents.executeJavaScript(code,true);
+      const point=await hj(`(()=>{const r=document.getElementById('pill').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`);hudWindow.webContents.sendInputEvent({type:'mouseMove',...point});await sleep(300);await shot('hud-two-buttons',hudWindow);
+      assert.ok(await hj(`document.getElementById('note-hit').getBoundingClientRect().width>0`));await hj(`document.getElementById('note-hit').click()`);await sleep(400);assert.ok(await js(`document.getElementById('new-meeting-dialog').open`));await js(`document.getElementById('new-meeting-dialog').close()`);
+      await click('button','Instellingen');await sleep(250);
+      await js(`document.querySelector('#note-shortcut-list button').click()`);await sleep(250);
+      await js(`for(const [type,code] of [['keydown','AltRight'],['keydown','KeyN'],['keyup','KeyN'],['keyup','AltRight']])document.dispatchEvent(new KeyboardEvent(type,{code,bubbles:true}));document.getElementById('shortcut-save').click()`);await sleep(350);
+      assert.deepEqual(storage.settings.noteHotkeys,[['AltRight','KeyN']]);assert.deepEqual(require('../src/renderer/hotkeys').fromSettings(storage.settings),[['ControlRight']]);await shot('notetaker-shortcut');
+      await assert.rejects(js(`window.jot.updateSettings({noteHotkeys:[['ControlRight']]})`));
+      assert.equal(captureConsoleErrors.filter(s=>!s.includes('overlapt')).length,0);results.ok=true;results.flows.noteShortcut={recorded:true,separateFromDictation:true,conflictsRefused:true};
+    }catch(error){results.ok=false;results.errors.push(error.stack||String(error));process.exitCode=1;}finally{fs.writeFileSync(path.join(root,'hud-note.json'),JSON.stringify(results,null,2));}return;
+  }
   if(process.env.JOT_PANEL_TEST){
     const panelErrors=[];
     try{
       storage.updateSettings({meetingAutoTranscribe:false});await sleep(600);
+      services.calendar.cache.events=[{id:'test-event',title:'Testafspraak',start:new Date().toISOString(),attendees:[{name:'Alice',email:'alice@example.test'},{name:'Bob',email:'bob@example.test'}]}];
       await navigate('notetaker');await click('button','Nieuwe opname');
       assert.deepEqual(await js(`[...document.querySelector('#meeting-audio-app').options].map(o=>o.value)`),['desktop-filtered','chrome','teams','zoom']);
-      await js(`document.querySelector('#meeting-title').value='Projectoverleg · TakkieAI';document.querySelector('#meeting-audio-app').value='desktop-filtered';document.querySelector('#new-meeting-form').requestSubmit()`);
+      await js(`document.querySelector('#meeting-title').value='Projectoverleg · TakkieAI';document.querySelector('#new-meeting-dialog').dataset.event='test-event';document.querySelector('#meeting-audio-app').value='desktop-filtered';document.querySelector('#new-meeting-form').requestSubmit()`);
       for(let n=0;n<60&&!services.panel.window;n++)await sleep(250);
       assert.ok(services.panel.window,'Separate meeting window opens');const panel=services.panel.window;
       panel.webContents.on('console-message',(_e,d)=>{if(d.level==='error')panelErrors.push(d.message);});
@@ -44,9 +76,11 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
       await pj(`document.querySelector('#tab-summary').click()`);await shot('meeting-panel-summary',panel);
       assert.ok(await pj(`!document.querySelector('#generate').hidden`));
       const saved=services.meetings.get(id);assert.ok(saved.durationMs>1500);assert.ok(saved.manifest.sources.system.samples>0);assert.ok(saved.manifest.sources.mic.samples>0);
+      assert.equal(saved.participants[0].name,'Alice');
       // Seed local fixtures, not fabricated product content, to verify rendered results and error state.
       services.meetings.saveDocument(id,'summary',{summary:'Planning besproken.',decisions:['Vrijdag opleveren.'],actions:[{text:'Concept uitwerken',owner:'Fahim'}]});
       services.meetings.saveDocument(id,'transcript',{segments:[{startMs:0,speakerId:'you',text:'Laten we de planning bespreken.'}]});services.manager.emit('changed');await sleep(300);await shot('meeting-panel-results',panel);
+      await pj(`document.querySelector('#tab-transcript').click()`);assert.equal(await pj(`document.querySelector('.speaker-label').textContent`),'Spreker 1');await pj(`document.querySelector('.speaker-label').click();const input=document.querySelector('.speaker-heading input');input.value='Alice';input.dispatchEvent(new Event('change'))`);await sleep(300);assert.equal(services.meetings.meta(id).speakers.you,'Alice');await shot('meeting-panel-speaker-name',panel);
       services.meetings.saveMeta(id,{error:{message:'Test: verbinding onderbroken.'}});services.manager.emit('changed');await sleep(300);await shot('meeting-panel-error',panel);
       assert.ok(await pj(`!document.querySelector('#error').hidden`));assert.equal(panelErrors.length,0);
       results.flows.panel={durationMs:saved.durationMs,app:'desktop-filtered',pauseResume:true,notesSaved:true,closeKeepsRecording:true,narrowWidth:375,consoleErrors:panelErrors,uploaded:false};results.ok=true;

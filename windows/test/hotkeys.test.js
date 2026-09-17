@@ -9,6 +9,9 @@ test('custom bindings migrate legacy choices, serialize and reject overlapping o
   assert.throws(()=>api.validate([['ControlLeft'],['ControlLeft','KeyK']]));
   assert.throws(()=>api.validate([['AltLeft','F4']]));
   assert.throws(()=>api.validate([['Oops']]));
+  assert.deepEqual(api.notesFromSettings({hotkeys:[['F9']]}),[['F10']]);
+  assert.throws(()=>api.validateGroups([['ControlLeft']], [['ControlLeft','KeyN']]));
+  assert.equal(api.validateGroups([['ControlRight']], [['F9']]).noteHotkeys[0][0],'F9');
 });
 test('real native shortcut matcher handles multiple chords, repeats, release order and suspension',{skip:process.platform!=='win32'},()=>{
   const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawnSync}=require('node:child_process');

@@ -22,7 +22,7 @@ class MeetingManager extends EventEmitter {
   }
   pause() { return this.changeCapture('pause', 'recording', 'paused'); }
   resume() { return this.changeCapture('resume', 'paused', 'recording'); }
-  acceptChunk(payload) { if (!this.active || payload.id !== this.active.id) throw new Error('Onbekende opname.'); try { return this.active.writer.append(payload); } catch (error) { this.captureFault({ id: payload.id, message: error.message }).catch(() => {}); throw error; } }
+  acceptChunk(payload) { if (!this.active || payload.id !== this.active.id) throw new Error('Onbekende opname.'); try { const result=this.active.writer.append(payload);this.emit('audio',payload);return result; } catch (error) { this.captureFault({ id: payload.id, message: error.message }).catch(() => {}); throw error; } }
   levels(payload) { if (payload.id === this.active?.id) this.emit('levels', { id: payload.id, mic: Math.max(0,Math.min(1,Number(payload.mic) || 0)), system: Math.max(0,Math.min(1,Number(payload.system) || 0)), durationMs: Math.max(0, Number(payload.durationMs) || 0), interruptedSource: ['mic','system'].includes(payload.interruptedSource) ? payload.interruptedSource : null }); }
   async stop() {
     if (this.transition || !this.active || !['recording','paused'].includes(this.state.state)) throw new Error('Wacht tot de opname klaar is om te stoppen.');

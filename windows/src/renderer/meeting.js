@@ -27,9 +27,18 @@ async function refresh() {
   $('status').textContent = ({recording:'● Opname actief',paused:'Opname gepauzeerd',finalizing:'Audio opslaan…',saved:'Audio lokaal opgeslagen',transcribing:'Transcript maken…',summarizing:'Samenvatting maken…',ready:'Lokaal opgeslagen'})[value.state] || 'Even wachten…';
   if (value.error) fail(Error(value.error.message || String(value.error))); else if (!dirty) $('error').hidden = true;
   $('transcript').replaceChildren();
-  const segments = value.transcript.segments;
-  $('transcript-empty').hidden = segments.length > 0;
-  for (const segment of segments) { paragraph($('transcript'), (value.speakers[segment.speakerId] || segment.speakerId || 'Spreker')+' · '+Math.floor(segment.startMs/60000)+':'+String(Math.floor(segment.startMs/1000)%60).padStart(2,'0'),'small'); paragraph($('transcript'),segment.text); }
+  const useLive=recording||!value.transcript.segments.length;const live=useLive?value.liveTranscript:null;
+  const segments=live?live.segments:value.transcript.segments;
+  $('transcript-empty').textContent=live?.message||(recording?'Live transcript verschijnt zodra je spreekt. Sprekers worden na afronden onderscheiden.':'Nog geen transcript beschikbaar.');
+  $('transcript-empty').hidden = segments.length > 0 && !live?.message;
+  for (const segment of segments) {
+    const heading=document.createElement('div');heading.className='speaker-heading';
+    const name=document.createElement('button');name.className='speaker-label';name.textContent=window.TakkieSpeakers.label(value,segment.speakerId);name.disabled=Boolean(live);
+    name.onclick=()=>{const edit=document.createElement('input');edit.value=name.textContent;edit.setAttribute('aria-label','Sprekernaam');edit.setAttribute('list','participant-names');name.replaceWith(edit);edit.focus();edit.select();const commit=async()=>{try{await request('speaker',{id:segment.speakerId,name:edit.value});await refresh();}catch(error){fail(error);}};edit.onchange=commit;edit.onkeydown=event=>{if(event.key==='Enter')edit.blur();};};
+    const time=document.createElement('small');time.textContent=Math.floor(segment.startMs/60000)+':'+String(Math.floor(segment.startMs/1000)%60).padStart(2,'0');heading.append(name,time);$('transcript').append(heading);paragraph($('transcript'),segment.text);
+  }
+  let names=$('participant-names');if(!names){names=document.createElement('datalist');names.id='participant-names';document.body.append(names);}names.replaceChildren();for(const person of value.participants||[]){const option=document.createElement('option');option.value=person.name||person.email;names.append(option);}
+  if(live?.interim)paragraph($('transcript'),live.interim);
   $('summary').replaceChildren(); $('summary-empty').hidden = Boolean(value.summary);
   if (value.summary) { paragraph($('summary'),value.summary.summary || ''); for (const [key,label] of [['decisions','Besluiten'],['actions','Actiepunten']]) { if (value.summary[key]?.length) { paragraph($('summary'),label,'h2'); for (const item of value.summary[key]) paragraph($('summary'),typeof item === 'string' ? item : [item.text,item.owner,item.deadline].filter(Boolean).join(' · ')); } } }
 }

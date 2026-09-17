@@ -9,6 +9,7 @@ const defaults = Object.freeze({
   onboardingComplete: false,
   hotkey: 'right-control',
   hotkeys: null,
+  noteHotkeys: null,
   smartTranscription: true,
   sounds: true,
   showIdleIndicator: true,

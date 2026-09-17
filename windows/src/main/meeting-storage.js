@@ -10,12 +10,12 @@ const RATE = 16000;
 const SEGMENT_SAMPLES = RATE * 30;
 function readJson(file, fallback) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } }
 class MeetingStorage {
-  constructor(root) { this.root = path.join(root, 'meetings'); fs.mkdirSync(this.root, { recursive: true }); }
+  constructor(root) { this.liveViews=new Map(); this.root = path.join(root, 'meetings'); fs.mkdirSync(this.root, { recursive: true }); }
   directory(id) { if (!UUID.test(id)) throw new Error('Invalid meeting id.'); return path.join(this.root, id); }
   create(options = {}) {
     const id = crypto.randomUUID(); const dir = this.directory(id);
     for (const source of SOURCES) fs.mkdirSync(path.join(dir, 'audio', source), { recursive: true });
-    const meta = { version: 1, id, title: String(options.title || 'Nieuwe meeting').slice(0, 300), eventId: typeof options.eventId === 'string' ? options.eventId.slice(0, 1024) : null, startedAt: new Date().toISOString(), endedAt: null, durationMs: 0, state: 'preparing', mic: options.mic !== false, system: options.system !== false, audioApp: ['desktop-filtered','chrome','teams','zoom','all'].includes(options.audioApp) ? options.audioApp : 'all', shared: false, speakers: {}, error: null };
+    const meta = { version: 1, id, title: String(options.title || 'Nieuwe meeting').slice(0, 300), eventId: typeof options.eventId === 'string' ? options.eventId.slice(0, 1024) : null, startedAt: new Date().toISOString(), endedAt: null, durationMs: 0, state: 'preparing', mic: options.mic !== false, system: options.system !== false, participants: Array.isArray(options.participants)?options.participants.slice(0,100):[], audioApp: ['desktop-filtered','chrome','teams','zoom','all'].includes(options.audioApp) ? options.audioApp : 'all', shared: false, speakers: {}, error: null };
     atomicWriteJson(path.join(dir, 'meta.json'), meta);
     atomicWriteJson(path.join(dir, 'manifest.json'), { version: 1, sampleRate: RATE, sources: {}, batches: {} });
     return meta;
@@ -25,8 +25,8 @@ class MeetingStorage {
   saveMeta(id, patch) { const meta = { ...this.meta(id), ...patch, id }; atomicWriteJson(path.join(this.directory(id), 'meta.json'), meta); return meta; }
   manifest(id) { return readJson(path.join(this.directory(id), 'manifest.json'), { version: 1, sampleRate: RATE, sources: {}, batches: {} }); }
   saveManifest(id, manifest) { atomicWriteJson(path.join(this.directory(id), 'manifest.json'), manifest); }
-  get(id) { const dir = this.directory(id); return { ...this.meta(id), manifest: this.manifest(id), transcript: readJson(path.join(dir, 'transcript.json'), { segments: [] }), summary: readJson(path.join(dir, 'summary.json'), null), notes: fs.existsSync(path.join(dir, 'notes.md')) ? fs.readFileSync(path.join(dir, 'notes.md'), 'utf8') : '' }; }
-  list(query = '') { const needle = String(query).toLocaleLowerCase(); return fs.readdirSync(this.root).filter(id => UUID.test(id)).flatMap(id => { try { const item = this.get(id); if (needle && !`${item.title} ${item.notes} ${item.transcript.segments.map(s => s.text).join(' ')}`.toLocaleLowerCase().includes(needle)) return []; const { manifest, transcript, summary, notes, ...meta } = item; return [{ ...meta, segmentCount: transcript.segments.length, audioAvailable: Boolean(manifest.sources.mix?.samples) && !manifest.audioDeletedAt }]; } catch { return []; } }).sort((a,b) => b.startedAt.localeCompare(a.startedAt)); }
+  get(id) { const dir = this.directory(id); return { ...this.meta(id), manifest: this.manifest(id), transcript: readJson(path.join(dir, 'transcript.json'), { segments: [] }), summary: readJson(path.join(dir, 'summary.json'), null), liveTranscript: this.liveViews.get(id)||readJson(path.join(dir,'live-transcript.json'),null), notes: fs.existsSync(path.join(dir, 'notes.md')) ? fs.readFileSync(path.join(dir, 'notes.md'), 'utf8') : '' }; }
+  list(query = '') { const needle = String(query).toLocaleLowerCase(); return fs.readdirSync(this.root).filter(id => UUID.test(id)).flatMap(id => { try { const item = this.get(id); if (needle && !`${item.title} ${item.notes} ${item.transcript.segments.map(s => s.text).join(' ')}`.toLocaleLowerCase().includes(needle)) return []; const { manifest, transcript, summary, notes, liveTranscript, ...meta } = item; return [{ ...meta, segmentCount: transcript.segments.length, audioAvailable: Boolean(manifest.sources.mix?.samples) && !manifest.audioDeletedAt }]; } catch { return []; } }).sort((a,b) => b.startedAt.localeCompare(a.startedAt)); }
   update(id, patch) {
     this.meta(id); const clean = {};
     if ('title' in patch) clean.title = String(patch.title).trim().slice(0, 300) || 'Nieuwe meeting';
@@ -36,7 +36,7 @@ class MeetingStorage {
     this.saveMeta(id, clean); return this.get(id);
   }
   audioPath(id, source, segment) { if (!SOURCES.includes(source) || !Number.isSafeInteger(segment) || segment < 0) throw new Error('Invalid audio segment.'); return path.join(this.directory(id), 'audio', source, `${String(segment).padStart(6, '0')}.wav`); }
-  saveDocument(id, name, value) { if (!['transcript', 'summary'].includes(name)) throw new Error('Invalid document.'); this.meta(id); atomicWriteJson(path.join(this.directory(id), `${name}.json`), value); }
+  saveDocument(id, name, value) { if (!['transcript', 'summary', 'live-transcript'].includes(name)) throw new Error('Invalid document.'); this.meta(id); atomicWriteJson(path.join(this.directory(id), `${name}.json`), value); }
   delete(id) { fs.rmSync(this.directory(id), { recursive: true, force: true }); }
   cleanupAudio(days, now = Date.now(), excludedIds = new Set()) {
     if (!Number.isFinite(Number(days)) || Number(days) <= 0) return;
@@ -47,7 +47,7 @@ class MeetingStorage {
       manifest.audioDeletedAt = new Date(now).toISOString(); this.saveManifest(meta.id, manifest);
     }
   }
-  export(id, format = 'md') { const m = this.get(id); if (!['md','txt','json'].includes(format)) throw new Error('Invalid export format.'); const stamp = ms => new Date(ms).toISOString().slice(11,19); const text = [`# ${m.title}`, m.startedAt, '', '## Samenvatting', m.summary?.summary || '', '', '## Besluiten', ...(m.summary?.decisions || []).map(x => `- ${typeof x === 'string' ? x : x.text}`), '', '## Actiepunten', ...(m.summary?.actions || []).map(x => `- ${x.text}${x.owner ? ` (${x.owner})` : ''}${x.deadline ? ` — ${x.deadline}` : ''}`), '', '## Transcript', ...m.transcript.segments.map(s => `[${stamp(s.startMs)}] ${m.speakers[s.speakerId] || s.speakerId}: ${s.text}`), '', '## Eigen notities', m.notes].join('\n'); return { filename: `${m.title.replace(/[^\p{L}\p{N} _-]/gu, '').slice(0,80) || 'meeting'}.${format}`, mimeType: format === 'json' ? 'application/json' : 'text/plain', content: format === 'json' ? JSON.stringify(m, null, 2) : format === 'txt' ? text.replace(/^#+ /gm, '') : text }; }
+  export(id, format = 'md') { const m = this.get(id); if (!['md','txt','json'].includes(format)) throw new Error('Invalid export format.'); const stamp = ms => new Date(ms).toISOString().slice(11,19); const text = [`# ${m.title}`, m.startedAt, '', '## Samenvatting', m.summary?.summary || '', '', '## Besluiten', ...(m.summary?.decisions || []).map(x => `- ${typeof x === 'string' ? x : x.text}`), '', '## Actiepunten', ...(m.summary?.actions || []).map(x => `- ${x.text}${x.owner ? ` (${x.owner})` : ''}${x.deadline ? ` — ${x.deadline}` : ''}`), '', '## Transcript', ...m.transcript.segments.map(s => `[${stamp(s.startMs)}] ${require('../renderer/speakers').label(m,s.speakerId)}: ${s.text}`), '', '## Eigen notities', m.notes].join('\n'); return { filename: `${m.title.replace(/[^\p{L}\p{N} _-]/gu, '').slice(0,80) || 'meeting'}.${format}`, mimeType: format === 'json' ? 'application/json' : 'text/plain', content: format === 'json' ? JSON.stringify(m, null, 2) : format === 'txt' ? text.replace(/^#+ /gm, '') : text }; }
   recover() {
     const recovered = [];
     for (const meta of this.list()) {

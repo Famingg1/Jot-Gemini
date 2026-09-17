@@ -1,6 +1,6 @@
 {
   "name": "jot-windows",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "TakkieAI smart dictation for Windows, powered by Gemini",
   "main": "src/main/index.js",
   "author": "Jot contributors",
@@ -19,6 +19,7 @@
     "@google/genai": "^2.19.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "electron-updater": "^6.8.9",
+    "ws": "^8.21.3",
     "zod": "3.25.76"
   },
   "devDependencies": {

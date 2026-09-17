@@ -69,6 +69,8 @@ contextBridge.exposeInMainWorld('jot', {
   showHud: () => ipcRenderer.send('hud:show'),
   hideHud: () => ipcRenderer.send('hud:hide'),
   hudStart: () => ipcRenderer.send('hud:start'),
+  hudNote: () => ipcRenderer.invoke('hud:note'),
+  onNewMeeting: callback => ipcRenderer.on('meeting:new', () => callback()),
   hudStop: () => ipcRenderer.send('hud:stop'),
   onNavigate: (callback) => ipcRenderer.on('navigate', (_event, value) => callback(value)),
   onState: (callback) => ipcRenderer.on('dictation:state', (_event, value) => callback(value)),

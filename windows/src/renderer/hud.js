@@ -75,6 +75,7 @@ pill.addEventListener('pointercancel', finishDrag);
 pill.addEventListener('lostpointercapture', finishDrag);
 pill.addEventListener('click', event => { if (suppressClick) { event.preventDefault(); event.stopImmediatePropagation(); } }, true);
 idleHit.addEventListener('click', () => window.jot.hudStart());
+document.getElementById('note-hit').addEventListener('click', () => window.jot.hudNote().catch(error=>{pill.title=error.message;}));
 finishButton.addEventListener('click', () => meeting ? window.jot.stopMeeting(meeting.id || meeting.meetingId) : window.jot.hudStop());
 cancelButton.addEventListener('click', () => meeting ? (state === 'paused' ? window.jot.resumeMeeting() : window.jot.pauseMeeting()) : window.jot.cancelDictation());
 pasteButton.addEventListener('click', () => window.jot.pasteLast());
@@ -96,7 +97,7 @@ if (window.jot.hudInteractive) {
   document.body.addEventListener('mousemove', event => window.jot.hudInteractive(pill.contains(event.target)));
 }
 
-function applyHudSettings(settings) { largeHud = Boolean(settings?.largeHud); pill.classList.toggle('large', largeHud); document.body.dataset.dock = settings?.hudPosition || 'center'; }
+function applyHudSettings(settings) { document.getElementById('note-hit').title='Notetaker · '+window.TakkieHotkeys.label(window.TakkieHotkeys.notesFromSettings(settings||{})[0]); largeHud = Boolean(settings?.largeHud); pill.classList.toggle('large', largeHud); document.body.dataset.dock = settings?.hudPosition || 'center'; }
 window.jot.bootstrap().then(value => applyHudSettings(value.settings)).catch(() => {});
 window.jot.onSettingsChanged?.(applyHudSettings);
 window.jot.onMeetingLevels?.(value => { if (Number.isFinite(value.durationMs)) meetingDurationMs = value.durationMs; if (meeting) tick(); });
