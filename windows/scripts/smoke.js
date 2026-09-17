@@ -128,6 +128,11 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
       assert.ok(hudWindow.isVisible());
       assert.equal(await hudWindow.webContents.executeJavaScript(`document.body.dataset.dock`), position);
       results.flows.hudDockPositions[position] = hudWindow.getBounds();
+      const vertical = position !== 'center';
+      assert.equal(hudWindow.getBounds().height > hudWindow.getBounds().width, vertical);
+      const pillBounds = await hudWindow.webContents.executeJavaScript(`(() => {const r=document.getElementById('pill').getBoundingClientRect();return {width:r.width,height:r.height,x:r.x,y:r.y};})()`);
+      assert.equal(pillBounds.height > pillBounds.width, vertical);
+      assert.ok(pillBounds.x >= 0 && pillBounds.y >= 0, 'Rotated pill remains inside its window');
       await shot(`hud-idle-${position}`, hudWindow);
     }
     assert.equal(results.flows.hudDockPositions.left.y, results.flows.hudDockPositions.right.y);

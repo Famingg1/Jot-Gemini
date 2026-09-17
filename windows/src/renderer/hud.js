@@ -17,7 +17,7 @@ let startedAt = 0;
 let timerHandle;
 
 const labels = {
-  recording: 'Meetingopname', paused: 'Gepauzeerd', idle: 'Dicteren', listening: 'Luisteren…', locked: 'Handsfree', processing: 'Transcriberen…',
+  recording: 'Meetingopname', paused: 'Gepauzeerd', idle: 'Dicteren', listening: '', locked: 'Handsfree', processing: 'Transcriberen…',
   inserting: 'Invoegen…', success: 'Klaar', clipboard: 'Gekopieerd naar klembord',
   offline: 'Opname bewaard — wacht op verbinding', error: 'Opname bewaard in Geschiedenis', secure: 'Beveiligd veld — dictatie gepauzeerd', cancelled: 'Geannuleerd'
 };

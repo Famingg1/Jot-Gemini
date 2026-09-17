@@ -165,9 +165,10 @@ function createHudWindow() {
 function positionHud() {
   if (!hudWindow || hudWindow.isDestroyed() || hudDrag) return;
   const display = screen.getAllDisplays().find(d => String(d.id) === storage.settings.hudDisplayId) || screen.getPrimaryDisplay();
-  const bounds = hudWindow.getBounds();
+  const side = ['left', 'right'].includes(storage.settings.hudPosition);
+  const bounds = side ? { width: 84, height: 260 } : { width: 260, height: 84 };
   const dock = dockBounds(display.workArea, bounds, storage.settings.hudPosition);
-  hudWindow.setPosition(dock.x, dock.y, false);
+  hudWindow.setBounds({ ...dock, ...bounds }, false);
 }
 
 function createTray() {

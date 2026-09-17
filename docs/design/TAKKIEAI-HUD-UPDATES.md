@@ -1,5 +1,9 @@
 # TakkieAI 0.4.1 — opnamebalk en updates
 
+## Aanpassing 0.4.3
+
+Bij docking links/rechts draait de volledige HUD respectievelijk +90/-90 graden; het transparante venster wisselt naar 84 × 260 px zodat bediening niet wordt afgesneden. Onderaan blijft het venster 260 × 84 px. Luisteren is verborgen in de HUD. De UI-smoke controleert verticale geometrie en dat de balk binnen het venster blijft (`windows/screenshots/side043`).
+
 ## Aanpassing 0.4.2
 
 De ruststand is nu 48 × 12 px, halfdoorzichtig zwart, zonder tekst of waveform. Hover toont een 112 × 32 px opnameknop. Audiolevels worden alleen tijdens opnemen getekend. De smoke controleert hover, verborgen waveform en slepen zonder opname; screenshots staan in `windows/screenshots/quiet042b`. De scratchpad-test wacht nu op de opgeslagen waarde in plaats van een vaste korte pauze.
