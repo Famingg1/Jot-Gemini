@@ -97,7 +97,9 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
   handle('meeting:start', async (options = {}) => {
     if (sessions.current || ['processing','inserting'].includes(sessions.state)) throw new Error('Rond eerst je dictatie af.');
     const audioApp=require('./settings').resolveMeetingAudioApp(options.audioApp,storage.settings.meetingAudioApp,Boolean(process.env.JOT_SMOKE&&process.env.JOT_TEST_PROFILE));
-    const result=await manager.start({ title: options.title, eventId: options.eventId, mic: options.microphone ?? options.mic ?? storage.settings.meetingMicrophone, system: options.systemAudio ?? options.system ?? storage.settings.meetingSystemAudio, microphoneId: storage.settings.microphoneId,audioApp,participants:calendar.status().events.find(event=>event.id===options.eventId)?.attendees||[] });
+    const calendarEvent=calendar.status().events.find(event=>event.id===options.eventId);
+    const eventTitle=calendarEvent?.summary||calendarEvent?.title||null;
+    const result=await manager.start({ title: eventTitle||options.title, eventTitle, autoTitle: !options.title, eventId: options.eventId, mic: options.microphone ?? options.mic ?? storage.settings.meetingMicrophone, system: options.systemAudio ?? options.system ?? storage.settings.meetingSystemAudio, microphoneId: storage.settings.microphoneId,audioApp,participants:calendarEvent?.attendees||[] });
     if(options.audioApp)storage.updateSettings({meetingAudioApp:audioApp});
     await panel.open(result.id).catch(() => send('diagnostic', 'Opname gestart. Het compacte venster kon niet openen; gebruik de knoppen in Notetaker.'));
     return result;

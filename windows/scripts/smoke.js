@@ -59,7 +59,8 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
       services.calendar.cache.events=[{id:'test-event',title:'Testafspraak',start:new Date().toISOString(),attendees:[{name:'Alice',email:'alice@example.test'},{name:'Bob',email:'bob@example.test'}]}];
       await navigate('notetaker');await click('button','Nieuwe opname');
       assert.deepEqual(await js(`[...document.querySelector('#meeting-audio-app').options].map(o=>o.value)`),['desktop-filtered','chrome','teams','zoom']);
-      await js(`document.querySelector('#meeting-title').value='Projectoverleg · TakkieAI';document.querySelector('#new-meeting-dialog').dataset.event='test-event';document.querySelector('#meeting-audio-app').value='desktop-filtered';document.querySelector('#new-meeting-form').requestSubmit()`);
+      assert.equal(await js(`Boolean(document.querySelector('#meeting-title'))`),false);await shot('new-meeting-auto-title');
+      await js(`document.querySelector('#new-meeting-dialog').dataset.event='test-event';document.querySelector('#meeting-audio-app').value='desktop-filtered';document.querySelector('#new-meeting-form').requestSubmit()`);
       for(let n=0;n<60&&!services.panel.window;n++)await sleep(250);
       assert.ok(services.panel.window,'Separate meeting window opens');const panel=services.panel.window;
       panel.webContents.on('console-message',(_e,d)=>{if(d.level==='error')panelErrors.push(d.message);});

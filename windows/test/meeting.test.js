@@ -9,6 +9,19 @@ const { MeetingManager } = require('../src/main/meeting-manager');
 const { MeetingTranscriber, validateTranscript, validateSummary } = require('../src/main/meeting-transcriber');
 function setup(t) { const root = fs.mkdtempSync(path.join(os.tmpdir(),'jot-meeting-')); t.after(() => fs.rmSync(root,{recursive:true,force:true})); return new MeetingStorage(root); }
 function record(storage, seconds = 1) { const meta = storage.create({ title: 'Test meeting' }); const writer = new MeetingWriter(storage,meta.id); for (let sequence=0; sequence<seconds; sequence++) for (const source of ['mic','system','mix']) writer.append({source,sequence,sampleOffset:sequence*RATE,pcm:Buffer.alloc(RATE*2,sequence%127)}); writer.close(); storage.saveMeta(meta.id,{state:'saved',durationMs:seconds*1000}); return meta.id; }
+test('generated meeting titles preserve calendar prefixes, manual edits and empty transcripts', async t => {
+  const storage=setup(t);
+  for(const scenario of [{eventTitle:null,expected:'Planning volgende sprint'},{eventTitle:'Fahim x Senna',expected:'Fahim x Senna: Planning volgende sprint'},{manual:true,expected:'Mijn eigen titel'},{empty:true,expected:'Nieuwe meeting'}]){
+    const id=record(storage);storage.saveMeta(id,{title:'Nieuwe meeting',autoTitle:true,eventTitle:scenario.eventTitle||null});
+    const transcriber=new MeetingTranscriber({storage,getApiKey:()=> 'test',getSettings:()=>({meetingModel:'test-model'}),clientFactory:async()=>({models:{generateContent:async request=>{
+      if(request.contents[0].parts.length>1)return {text:JSON.stringify({segments:scenario.empty?[]:[{startMs:0,endMs:900,speakerId:'one',text:'Wij bespreken de planning.'}]})};
+      if(scenario.manual)storage.update(id,{title:'Mijn eigen titel'});
+      return {text:JSON.stringify({title:'Planning volgende sprint',summary:'Planning',decisions:[],actions:[]})};
+    }}})});
+    await transcriber.process(id);assert.equal(storage.meta(id).state,'ready');assert.equal(storage.meta(id).title,scenario.expected);
+    await transcriber.process(id);assert.equal(storage.meta(id).title,scenario.expected);
+  }
+});
 test('bounded writer segments at 30s, durable headers and independent sources', t => { const storage=setup(t); const id=record(storage,31); for (const source of ['mic','system','mix']) { const a=fs.readFileSync(storage.audioPath(id,source,0)); const b=fs.readFileSync(storage.audioPath(id,source,1)); assert.equal(a.length,44+RATE*60); assert.equal(a.readUInt32LE(40),RATE*60); assert.equal(b.length,44+RATE*2); assert.equal(storage.manifest(id).sources[source].samples,RATE*31); } });
 test('reject malformed ids, oversized blocks and gaps without accepting bad audio', t => { const storage=setup(t); assert.throws(()=>storage.directory('../escape')); const meta=storage.create(); const writer=new MeetingWriter(storage,meta.id); assert.throws(()=>writer.append({source:'mix',sequence:1,sampleOffset:0,pcm:Buffer.alloc(32)}),/sequence/); assert.throws(()=>writer.append({source:'mix',sequence:0,sampleOffset:0,pcm:Buffer.alloc(64000)}),/size/); assert.throws(()=>writer.append({source:'../x',sequence:0,sampleOffset:0,pcm:Buffer.alloc(32)})); });
 test('crash recovery repairs uncheckpointed PCM tail and odd partial sample', t => { const storage=setup(t); const id=record(storage); storage.saveMeta(id,{state:'recording'}); const file=storage.audioPath(id,'mix',0); fs.appendFileSync(file,Buffer.alloc(321)); assert.deepEqual(storage.recover(),[id]); const wav=fs.readFileSync(file); assert.equal(wav.readUInt32LE(40),RATE*2+320); assert.equal(wav.length,44+RATE*2+320); assert.equal(storage.get(id).state,'saved'); assert.equal(storage.get(id).recovered,true); });

@@ -15,7 +15,7 @@ class MeetingStorage {
   create(options = {}) {
     const id = crypto.randomUUID(); const dir = this.directory(id);
     for (const source of SOURCES) fs.mkdirSync(path.join(dir, 'audio', source), { recursive: true });
-    const meta = { version: 1, id, title: String(options.title || 'Nieuwe meeting').slice(0, 300), eventId: typeof options.eventId === 'string' ? options.eventId.slice(0, 1024) : null, startedAt: new Date().toISOString(), endedAt: null, durationMs: 0, state: 'preparing', mic: options.mic !== false, system: options.system !== false, participants: Array.isArray(options.participants)?options.participants.slice(0,100):[], audioApp: ['desktop-filtered','chrome','teams','zoom','all'].includes(options.audioApp) ? options.audioApp : 'all', shared: false, speakers: {}, error: null };
+    const meta = { version: 1, id, autoTitle: options.autoTitle === true, eventTitle: typeof options.eventTitle === 'string' ? options.eventTitle.trim().slice(0,180) : null, title: String(options.title || 'Nieuwe meeting').slice(0, 300), eventId: typeof options.eventId === 'string' ? options.eventId.slice(0, 1024) : null, startedAt: new Date().toISOString(), endedAt: null, durationMs: 0, state: 'preparing', mic: options.mic !== false, system: options.system !== false, participants: Array.isArray(options.participants)?options.participants.slice(0,100):[], audioApp: ['desktop-filtered','chrome','teams','zoom','all'].includes(options.audioApp) ? options.audioApp : 'all', shared: false, speakers: {}, error: null };
     atomicWriteJson(path.join(dir, 'meta.json'), meta);
     atomicWriteJson(path.join(dir, 'manifest.json'), { version: 1, sampleRate: RATE, sources: {}, batches: {} });
     return meta;
@@ -29,7 +29,7 @@ class MeetingStorage {
   list(query = '') { const needle = String(query).toLocaleLowerCase(); return fs.readdirSync(this.root).filter(id => UUID.test(id)).flatMap(id => { try { const item = this.get(id); if (needle && !`${item.title} ${item.notes} ${item.transcript.segments.map(s => s.text).join(' ')}`.toLocaleLowerCase().includes(needle)) return []; const { manifest, transcript, summary, notes, liveTranscript, ...meta } = item; return [{ ...meta, segmentCount: transcript.segments.length, audioAvailable: Boolean(manifest.sources.mix?.samples) && !manifest.audioDeletedAt }]; } catch { return []; } }).sort((a,b) => b.startedAt.localeCompare(a.startedAt)); }
   update(id, patch) {
     this.meta(id); const clean = {};
-    if ('title' in patch) clean.title = String(patch.title).trim().slice(0, 300) || 'Nieuwe meeting';
+    if ('title' in patch) { clean.title = String(patch.title).trim().slice(0, 300) || 'Nieuwe meeting'; clean.autoTitle = false; }
     if ('shared' in patch) clean.shared = patch.shared === true;
     if ('speakers' in patch) { clean.speakers = {}; for (const [key, value] of Object.entries(patch.speakers || {}).slice(0, 200)) { if (/^[a-zA-Z0-9_-]{1,100}$/.test(key)) clean.speakers[key] = String(value).slice(0, 200); } }
     if ('notes' in patch) { if (typeof patch.notes !== 'string' || patch.notes.length > 2e6) throw new Error('Notitie te groot.'); const file = path.join(this.directory(id), 'notes.md'); fs.writeFileSync(`${file}.tmp`, patch.notes); fs.renameSync(`${file}.tmp`, file); }
