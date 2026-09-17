@@ -1,0 +1,39 @@
+name: TakkieAI Windows release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+      - run: npm ci
+      - name: Build and verify
+        run: npm run build
+      - name: Determine release version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag and package version must match' }
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: TakkieAI ${{ steps.version.outputs.tag }}
+          draft: true
+          files: |
+            windows/dist/TakkieAI-*-Windows-x64.exe
+            windows/dist/TakkieAI-*-Windows-x64.exe.blockmap
+            windows/dist/latest.yml

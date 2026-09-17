@@ -4,12 +4,16 @@ const path = require('node:path');
 const fs = require('node:fs');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, nativeTheme,
-  safeStorage, clipboard, shell, dialog, session: electronSession, screen
+  safeStorage, clipboard, shell, dialog, session: electronSession, screen, protocol
 } = require('electron');
 const { JotStorage } = require('./storage');
 const { NativeHelper } = require('./native-helper');
 const { SessionManager } = require('./session-manager');
 const { validateKey, normalizeError } = require('./gemini');
+const { sanitizeSettingsPatch } = require('./settings');
+const { createDesktopServices } = require('./desktop-services');
+const { dockBounds, nearestAnchor } = require('./hud-layout');
+let hudDrag = null;
 
 let mainWindow;
 let hudWindow;
@@ -17,9 +21,19 @@ let tray;
 let storage;
 let nativeHelper;
 let sessions;
+let services;
+let quitReady = false;
+let quitPending = false;
 let isQuitting = false;
 let lastTarget = {};
 const captureConsoleErrors = [];
+protocol.registerSchemesAsPrivileged([{ scheme: 'jot-audio', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } }]);
+if (process.env.JOT_SMOKE && !process.env.JOT_TEST_PROFILE) throw new Error('Smoke tests require an isolated JOT_TEST_PROFILE.');
+if (process.env.JOT_TEST_PROFILE) app.setPath('userData', path.resolve(process.env.JOT_TEST_PROFILE));
+if (process.env.JOT_SMOKE) {
+  if (!process.env.JOT_SYSTEM_TEST) app.commandLine.appendSwitch('use-fake-device-for-media-stream');
+  if (['1','1.25','1.5'].includes(process.env.JOT_DPI)) app.commandLine.appendSwitch('force-device-scale-factor', process.env.JOT_DPI);
+}
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -28,7 +42,9 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.whenReady().then(async () => {
+  if (process.env.JOT_SMOKE) console.log('SMOKE: app ready');
   storage = new JotStorage(app.getPath('userData'), safeStorage);
+  if (!storage.settings.showIdleIndicator) storage.updateSettings({ showIdleIndicator: true });
   if (process.env.JOT_CAPTURE_DIR) {
     storage.updateSettings({ onboardingComplete: true, showIdleIndicator: true });
   }
@@ -37,23 +53,27 @@ app.whenReady().then(async () => {
   app.setLoginItemSettings({ openAtLogin: storage.settings.launchAtLogin, path: app.getPath('exe') });
 
   electronSession.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-    const localPage = webContents === mainWindow?.webContents;
-    const isAudio = permission === 'media' && (!details.mediaTypes || details.mediaTypes.includes('audio'));
-    callback(Boolean(localPage && isAudio));
+    const audioOnly = permission === 'media' && (!details.mediaTypes || details.mediaTypes.every(type => type === 'audio'));
+    callback(Boolean((webContents === mainWindow?.webContents && audioOnly) || (services?.isCapture(webContents) && ['media','display-capture'].includes(permission))));
   });
+  electronSession.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => Boolean(
+    (contents === mainWindow?.webContents && permission === 'media' && details.mediaType !== 'video') ||
+    (services?.isCapture(contents) && ['media','display-capture'].includes(permission))
+  ));
 
   createMainWindow();
   createHudWindow();
   createTray();
+  if (process.env.JOT_SMOKE) console.log('SMOKE: windows created');
 
   nativeHelper = new NativeHelper({ appPath: app.getAppPath(), resourcesPath: process.resourcesPath, packaged: app.isPackaged });
   nativeHelper.on('event', handleNativeEvent);
   nativeHelper.on('error', (error) => broadcastDiagnostic(error.message));
-  nativeHelper.start(storage.settings.hotkey);
+  if (!process.env.JOT_SMOKE) nativeHelper.start(storage.settings.hotkey);
 
   sessions = new SessionManager({ storage, nativeHelper, clipboard });
   sessions.on('state', (state) => {
-    hudWindow?.webContents.send('hud:state', state);
+    if (!services?.active()) hudWindow?.webContents.send('hud:state', state);
     mainWindow?.webContents.send('dictation:state', state);
     updateTray();
   });
@@ -63,18 +83,33 @@ app.whenReady().then(async () => {
   sessions.recoverInterrupted();
 
   registerIpc();
-  setInterval(() => sessions.retryQueued().catch(() => {}), 30000).unref();
+  if (process.env.JOT_SMOKE) console.log('SMOKE: IPC ready');
+  services = await createDesktopServices({ storage, mainWindow, hudWindow, sessions, hardenWebContents, updateTray });
+  if (process.env.JOT_SMOKE) console.log('SMOKE: services ready');
+  mainWindow.webContents.send('services:ready');
+  if (app.isPackaged && !process.env.JOT_TEST_PROFILE) {
+    require('./updates').startUpdates({ updater: require('electron-updater').autoUpdater, onStatus: () => updateTray() });
+  }
+  if (process.env.JOT_SMOKE) {
+    await require('../../scripts/smoke').run({ mainWindow, hudWindow, services, storage, sessions, captureConsoleErrors });
+    app.quit();
+  } else if (process.env.JOT_CAPTURE_DIR) setTimeout(runCaptureSuite, 900);
+  setInterval(() => { if (!services.active()) sessions.retryQueued().catch(() => {}); }, 30000).unref();
+}).catch(error => {
+  console.error(error);
+  dialog.showErrorBox('TakkieAI kon niet starten', error.message);
+  isQuitting = true; quitReady = true; app.quit();
 });
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
+    width: 1366,
+    height: 900,
     minWidth: 760,
     minHeight: 560,
     show: false,
-    title: 'Jot',
-    backgroundColor: '#F8FAFD',
+    title: 'TakkieAI',
+    backgroundColor: '#F6F5F1',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
@@ -89,11 +124,8 @@ function createMainWindow() {
     if (details.level === 'error') captureConsoleErrors.push(details.message);
   });
   mainWindow.once('ready-to-show', () => {
-    if (!storage.settings.onboardingComplete || process.env.JOT_CAPTURE_DIR) mainWindow.show();
+    if (!app.getLoginItemSettings().wasOpenedAtLogin || process.env.JOT_CAPTURE_DIR) mainWindow.show();
   });
-  if (process.env.JOT_CAPTURE_DIR) {
-    mainWindow.webContents.once('did-finish-load', () => setTimeout(runCaptureSuite, 900));
-  }
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
       event.preventDefault();
@@ -104,7 +136,7 @@ function createMainWindow() {
 
 function createHudWindow() {
   hudWindow = new BrowserWindow({
-    width: 390,
+    width: 260,
     height: 84,
     transparent: true,
     frame: false,
@@ -125,19 +157,17 @@ function createHudWindow() {
   hudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   hudWindow.loadFile(path.join(__dirname, '..', 'renderer', 'hud.html'));
   hardenWebContents(hudWindow.webContents);
-  hudWindow.once('ready-to-show', positionHud);
+  hudWindow.once('ready-to-show', () => { positionHud(); hudWindow.showInactive(); });
   screen.on('display-metrics-changed', positionHud);
+  screen.on('display-removed', positionHud);
 }
 
 function positionHud() {
-  if (!hudWindow) return;
-  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  if (!hudWindow || hudWindow.isDestroyed() || hudDrag) return;
+  const display = screen.getAllDisplays().find(d => String(d.id) === storage.settings.hudDisplayId) || screen.getPrimaryDisplay();
   const bounds = hudWindow.getBounds();
-  hudWindow.setPosition(
-    Math.round(display.workArea.x + (display.workArea.width - bounds.width) / 2),
-    Math.round(display.workArea.y + display.workArea.height - bounds.height - 14),
-    false
-  );
+  const dock = dockBounds(display.workArea, bounds, storage.settings.hudPosition);
+  hudWindow.setPosition(dock.x, dock.y, false);
 }
 
 function createTray() {
@@ -147,7 +177,7 @@ function createTray() {
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 18, height: 18 });
   if (trayIcon.isEmpty()) throw new Error(`Tray icon could not be loaded from ${iconPath}.`);
   tray = new Tray(trayIcon);
-  tray.setToolTip('Jot — klaar om te dicteren');
+  tray.setToolTip('TakkieAI — klaar om te dicteren');
   tray.on('double-click', showMainWindow);
   updateTray();
 }
@@ -155,27 +185,32 @@ function createTray() {
 function updateTray() {
   if (!tray || !storage) return;
   const state = sessions?.state || 'idle';
+  const meetingActive = services?.active();
   const label = {
     idle: `Klaar — houd ${hotkeyLabel(storage.settings.hotkey)} ingedrukt`,
     listening: 'Luisteren…', locked: 'Handsfree luisteren…', processing: 'Transcriberen…',
     inserting: 'Tekst invoegen…', success: 'Ingevoegd', offline: 'Opname wacht op verbinding', error: 'Aandacht nodig'
-  }[state] || 'Jot';
-  tray.setToolTip(`Jot — ${label}`);
+  }[state] || 'TakkieAI';
+  tray.setToolTip(`TakkieAI — ${meetingActive ? 'Meeting wordt opgenomen' : label}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label, enabled: false },
-    { label: state === 'listening' || state === 'locked' ? 'Stop dictatie' : 'Start handsfree dictatie', click: () => state === 'listening' || state === 'locked' ? sessions.finish() : sessions.begin({}) },
+    { label: state === 'listening' || state === 'locked' ? 'Stop dictatie' : 'Start handsfree dictatie', enabled: !meetingActive, click: () => state === 'listening' || state === 'locked' ? sessions.finish() : sessions.begin({}) },
+    { label: meetingActive ? 'Stop meetingopname' : 'Notetaker', click: () => meetingActive ? services.manager.stop().catch(error => broadcastDiagnostic(error.message)) : showMainWindow('notetaker') },
     { label: 'Plak laatste transcript', enabled: Boolean(sessions?.lastTranscript), click: pasteLastTranscript },
     { type: 'separator' },
     { label: 'Geschiedenis', click: () => showMainWindow('history') },
     { label: 'Woordenboek', click: () => showMainWindow('dictionary') },
     { label: 'Instellingen', click: () => showMainWindow('general') },
+    { label: require('./updates').updateStatus(), enabled: false },
+    { label: 'Controleren op updates', click: () => require('./updates').checkUpdates() },
     { type: 'separator' },
-    { label: 'Afsluiten', click: () => { isQuitting = true; app.quit(); } }
+    { label: 'Afsluiten', click: () => app.quit() }
   ]));
 }
 
 function handleNativeEvent(event) {
   if (!sessions) return;
+  if (services?.active() && ['down','up','lock','escape','secure'].includes(event.type)) return;
   if (event.hwnd && ['down', 'up', 'lock', 'escape', 'secure'].includes(event.type)) lastTarget = event;
   if (event.type === 'down') {
     if (sessions.state === 'locked') sessions.finish();
@@ -210,21 +245,30 @@ function publicSettings() {
 }
 
 function registerIpc() {
-  ipcMain.handle('app:bootstrap', () => ({
+  // Only the packaged local top-level UI can invoke privileged actions.
+  const handle = (channel, callback, hud = false) => ipcMain.handle(channel, (event, ...args) => {
+    if ((event.sender !== mainWindow.webContents && !(hud && event.sender === hudWindow.webContents)) || event.senderFrame !== event.sender.mainFrame) throw new Error('Deze actie is niet toegestaan.');
+    return callback(event, ...args);
+  });
+  handle('app:bootstrap', () => ({
     settings: publicSettings(),
     stats: storage.stats(),
     history: storage.listHistory(),
+    nativeHelper: { available: Boolean(nativeHelper?.process), error: nativeHelper?.lastError || '' },
     versions: { app: app.getVersion(), electron: process.versions.electron }
-  }));
-  ipcMain.handle('settings:update', (_event, patch) => {
-    const next = storage.updateSettings(sanitizeSettingsPatch(patch || {}));
+  }), true);
+  handle('settings:update', (_event, patch) => {
+    const next = storage.updateSettings({ ...sanitizeSettingsPatch(patch || {}), showIdleIndicator: true });
     nativeTheme.themeSource = next.theme;
     nativeHelper.configure(next.hotkey);
     app.setLoginItemSettings({ openAtLogin: next.launchAtLogin, path: app.getPath('exe') });
     updateTray();
+    mainWindow.webContents.send('settings:changed', publicSettings());
+    hudWindow.webContents.send('settings:changed', publicSettings());
+    positionHud(); hudWindow.showInactive();
     return publicSettings();
   });
-  ipcMain.handle('api-key:save', async (_event, key) => {
+  handle('api-key:save', async (_event, key) => {
     const clean = String(key || '').trim();
     if (clean.length < 20 || clean.length > 256) return { ok: false, message: 'Vul een geldige Gemini API-key in.' };
     try {
@@ -235,74 +279,80 @@ function registerIpc() {
       return { ok: false, message: normalizeError(error).message };
     }
   });
-  ipcMain.handle('api-key:clear', () => { storage.clearApiKey(); return { ok: true }; });
-  ipcMain.handle('history:list', (_event, query) => ({ records: storage.listHistory(String(query || '')), stats: storage.stats() }));
-  ipcMain.handle('history:delete', (_event, id) => { storage.deleteRecord(String(id)); return true; });
-  ipcMain.handle('history:retry', async (_event, id) => { await sessions.retry(String(id)); return true; });
-  ipcMain.handle('history:copy', (_event, text) => { clipboard.writeText(String(text || '')); return true; });
-  ipcMain.handle('history:open-audio', async (_event, id) => {
+  handle('api-key:clear', () => { storage.clearApiKey(); return { ok: true }; });
+  handle('history:list', (_event, query) => ({ records: storage.listHistory(String(query || '')), stats: storage.stats() }));
+  handle('history:delete', (_event, id) => { storage.deleteRecord(String(id)); return true; });
+  handle('history:retry', async (_event, id) => { await sessions.retry(String(id)); return true; });
+  handle('history:copy', (_event, text) => { clipboard.writeText(String(text || '')); return true; });
+  handle('history:open-audio', async (_event, id) => {
     const record = storage.listHistory().find((item) => item.id === String(id));
     if (!record?.audioAvailable) return 'Audio is niet meer beschikbaar.';
     return shell.openPath(path.join(record.directory, 'audio.wav'));
   });
-  ipcMain.handle('history:export', async (_event, id) => {
+  handle('history:export', async (_event, id) => {
     const record = storage.listHistory().find((item) => item.id === String(id));
     if (!record) return false;
-    const result = await dialog.showSaveDialog(mainWindow, { defaultPath: `Jot-${record.startedAt.slice(0, 10)}.txt`, filters: [{ name: 'Tekst', extensions: ['txt'] }] });
+    const result = await dialog.showSaveDialog(mainWindow, { defaultPath: `TakkieAI-${record.startedAt.slice(0, 10)}.txt`, filters: [{ name: 'Tekst', extensions: ['txt'] }] });
     if (!result.canceled && result.filePath) fs.writeFileSync(result.filePath, record.finalTranscript || record.rawTranscript || '', 'utf8');
     return !result.canceled;
   });
-  ipcMain.handle('dictation:start', async () => {
+  handle('dictation:start', async () => {
+    if (services?.active()) throw new Error('Rond eerst de meetingopname af.');
     mainWindow.hide();
     await new Promise((resolve) => setTimeout(resolve, 180));
+    if (services?.active()) throw new Error('Er is inmiddels een meetingopname gestart.');
     sessions.begin({});
     sessions.lock();
     return true;
   });
-  ipcMain.handle('dictation:stop', () => sessions.finish());
-  ipcMain.handle('dictation:cancel', () => sessions.cancel());
-  ipcMain.handle('dictation:paste-last', () => pasteLastTranscript());
-  ipcMain.on('audio:chunk', (_event, payload) => sessions.appendChunk(payload.data, payload.sampleRate));
-  ipcMain.on('audio:level', (_event, level) => hudWindow?.webContents.send('hud:level', Number(level) || 0));
-  ipcMain.handle('audio:devices', async (event) => event.sender.executeJavaScript('navigator.mediaDevices.enumerateDevices().then(ds => ds.filter(d => d.kind === "audioinput").map(d => ({id:d.deviceId,label:d.label||"Microfoon"})))'));
-  ipcMain.handle('external:open', (_event, url) => {
-    const allowed = ['https://aistudio.google.com/', 'https://ai.google.dev/', 'https://github.com/'];
-    if (allowed.some((prefix) => String(url).startsWith(prefix))) shell.openExternal(String(url));
+  handle('dictation:stop', () => sessions.finish());
+  handle('dictation:cancel', () => sessions.cancel(), true);
+  handle('dictation:paste-last', () => pasteLastTranscript(), true);
+  ipcMain.on('audio:chunk', (event, payload) => {
+    if (event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame || services?.active()) return;
+    if (!(payload?.data instanceof ArrayBuffer) || payload.data.byteLength > 1024 * 1024 || !Number.isFinite(payload.sampleRate) || payload.sampleRate < 8000 || payload.sampleRate > 192000) return;
+    sessions.appendChunk(payload.data, payload.sampleRate);
   });
-  ipcMain.on('window:hide', () => mainWindow.hide());
-  ipcMain.on('hud:show', () => { positionHud(); hudWindow.showInactive(); });
-  ipcMain.on('hud:hide', () => hudWindow.hide());
-  ipcMain.on('hud:start', () => sessions.begin(lastTarget));
-  ipcMain.on('hud:stop', () => sessions.finish());
+  ipcMain.on('audio:level', (event, level) => { if (event.sender === mainWindow.webContents && !services?.active()) hudWindow?.webContents.send('hud:level', Math.max(0, Math.min(1, Number(level) || 0))); });
+  handle('audio:devices', async (event) => event.sender.executeJavaScript('navigator.mediaDevices.enumerateDevices().then(ds => ds.filter(d => d.kind === "audioinput").map(d => ({id:d.deviceId,label:d.label||"Microfoon"})))'));
+  handle('external:open', (_event, url) => {
+    const target = new URL(String(url));
+    if (target.protocol !== 'https:' || target.username || target.password) throw new Error('Alleen beveiligde webadressen kunnen geopend worden.');
+    return shell.openExternal(target.href);
+  });
+  const trusted = event => [mainWindow.webContents, hudWindow.webContents].includes(event.sender) && event.senderFrame === event.sender.mainFrame;
+  ipcMain.on('window:hide', event => { if (trusted(event)) mainWindow.hide(); });
+  ipcMain.on('window:show', event => { if (trusted(event)) showMainWindow('notetaker'); });
+  ipcMain.on('hud:show', event => { if (trusted(event)) { positionHud(); hudWindow.showInactive(); } });
+  ipcMain.on('hud:hide', event => { if (trusted(event)) hudWindow.showInactive(); });
+  ipcMain.on('hud:drag', (event, phase) => {
+    if (event.sender !== hudWindow.webContents || event.senderFrame !== event.sender.mainFrame) return;
+    const point = screen.getCursorScreenPoint();
+    if (phase === 'start') {
+      hudDrag = { point, bounds: hudWindow.getBounds() };
+      hudWindow.setIgnoreMouseEvents(false);
+    } else if (phase === 'move' && hudDrag) {
+      hudWindow.setPosition(Math.round(hudDrag.bounds.x + point.x - hudDrag.point.x), Math.round(hudDrag.bounds.y + point.y - hudDrag.point.y), false);
+    } else if (phase === 'end' && hudDrag) {
+      const moved = Math.hypot(point.x - hudDrag.point.x, point.y - hudDrag.point.y) > 5;
+      hudDrag = null;
+      if (moved) {
+        const display = screen.getDisplayNearestPoint(point);
+        storage.updateSettings({ hudPosition: nearestAnchor(display.workArea, point), hudDisplayId: String(display.id) });
+        mainWindow.webContents.send('settings:changed', publicSettings());
+        hudWindow.webContents.send('settings:changed', publicSettings());
+      }
+      positionHud();
+      hudWindow.setIgnoreMouseEvents(true, { forward: true });
+    }
+  });
+  ipcMain.on('hud:start', event => { if (trusted(event) && !services?.active()) sessions.begin(lastTarget); });
+  ipcMain.on('hud:stop', event => { if (trusted(event)) (services?.active() ? services.manager.stop() : sessions.finish()).catch(error => broadcastDiagnostic(error.message)); });
+  ipcMain.on('hud:interactive', (event, interactive) => { if (event.sender === hudWindow.webContents && !hudDrag) hudWindow.setIgnoreMouseEvents(!interactive, { forward: true }); });
 }
 
 function hotkeyLabel(key) {
   return { 'right-control': 'rechter Ctrl', 'caps-lock': 'Caps Lock', f8: 'F8' }[key] || 'rechter Ctrl';
-}
-
-function sanitizeSettingsPatch(patch) {
-  const clean = {};
-  if (['right-control', 'caps-lock', 'f8'].includes(patch.hotkey)) clean.hotkey = patch.hotkey;
-  if (typeof patch.onboardingComplete === 'boolean') clean.onboardingComplete = patch.onboardingComplete;
-  if (typeof patch.smartTranscription === 'boolean') clean.smartTranscription = patch.smartTranscription;
-  if (typeof patch.sounds === 'boolean') clean.sounds = patch.sounds;
-  if (typeof patch.showIdleIndicator === 'boolean') clean.showIdleIndicator = patch.showIdleIndicator;
-  if (typeof patch.launchAtLogin === 'boolean') clean.launchAtLogin = patch.launchAtLogin;
-  if (['system', 'light', 'dark'].includes(patch.theme)) clean.theme = patch.theme;
-  if (['auto', 'nl-NL', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'es-ES'].includes(patch.language)) clean.language = patch.language;
-  if (typeof patch.microphoneId === 'string' && patch.microphoneId.length <= 512) clean.microphoneId = patch.microphoneId;
-  if ([0, 1, 7, 30].includes(Number(patch.audioRetentionDays))) clean.audioRetentionDays = Number(patch.audioRetentionDays);
-  if (typeof patch.model === 'string' && /^[a-z0-9._-]{1,100}$/iu.test(patch.model)) clean.model = patch.model;
-  if (Array.isArray(patch.dictionary)) {
-    clean.dictionary = [...new Set(patch.dictionary.map((term) => String(term).trim()).filter(Boolean))].slice(0, 1000).map((term) => term.slice(0, 100));
-  }
-  if (Array.isArray(patch.replacements)) {
-    clean.replacements = patch.replacements.slice(0, 500).map((item) => ({
-      from: String(item?.from || '').trim().slice(0, 100),
-      to: String(item?.to || '').trim().slice(0, 100)
-    })).filter((item) => item.from);
-  }
-  return clean;
 }
 
 function hardenWebContents(webContents) {
@@ -330,7 +380,7 @@ async function runCaptureSuite() {
     const smokeWindowHandle = browserWindowHandle(mainWindow);
     await mainWindow.webContents.executeJavaScript("document.getElementById('dictionary-term').focus()", true);
     await pause(120);
-    const pasteOutcome = await sessions.insert('Jot Native Paste Test', smokeWindowHandle);
+    const pasteOutcome = await sessions.insert('TakkieAI Native Paste Test', smokeWindowHandle);
     await pause(180);
     const pastedValue = await mainWindow.webContents.executeJavaScript("document.getElementById('dictionary-term').value", true);
     // The capture runner is deliberately backgrounded by CI/terminals, so Windows
@@ -338,15 +388,15 @@ async function runCaptureSuite() {
     flowResults.nativeTargetGuard = pasteOutcome === 'target-changed' && pastedValue === '';
     await mainWindow.webContents.executeJavaScript(`(() => {
       const input = document.getElementById('dictionary-term');
-      input.value = 'Jot Smoke Test';
+      input.value = 'TakkieAI Smoke Test';
       document.getElementById('dictionary-form').requestSubmit();
     })()`, true);
     await pause(220);
-    flowResults.dictionaryAdd = await mainWindow.webContents.executeJavaScript("document.getElementById('dictionary-list').innerText.includes('Jot Smoke Test')", true);
+    flowResults.dictionaryAdd = await mainWindow.webContents.executeJavaScript("document.getElementById('dictionary-list').innerText.includes('TakkieAI Smoke Test')", true);
     await captureWindow(mainWindow, path.join(captureDirectory, 'windows-dictionary.png'));
     await mainWindow.webContents.executeJavaScript("document.querySelector('#dictionary-list .token button')?.click()", true);
     await pause(180);
-    flowResults.dictionaryDelete = !storage.settings.dictionary.includes('Jot Smoke Test');
+    flowResults.dictionaryDelete = !storage.settings.dictionary.includes('TakkieAI Smoke Test');
     mainWindow.webContents.send('navigate', 'dictation');
     await pause(220);
     await mainWindow.webContents.executeJavaScript(`(() => {
@@ -417,7 +467,14 @@ function browserWindowHandle(window) {
 }
 
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  if (!quitReady && services) {
+    event.preventDefault();
+    if (quitPending) return;
+    isQuitting = true; quitPending = true;
+    services.dispose().catch(error => console.error('Meeting finalization:', error.message)).finally(() => { quitReady = true; app.quit(); });
+    return;
+  }
   isQuitting = true;
   nativeHelper?.stop();
 });

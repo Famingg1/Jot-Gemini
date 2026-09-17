@@ -7,6 +7,7 @@ const { EventEmitter } = require('node:events');
 const { pcmToWav } = require('./wav');
 const { transcribe, normalizeError } = require('./gemini');
 const { canTransition } = require('./state');
+const { codingSettings, expandSnippets, applyWritingStyle } = require('./text-tools');
 
 class SessionManager extends EventEmitter {
   constructor({ storage, nativeHelper, clipboard }) {
@@ -135,15 +136,23 @@ class SessionManager extends EventEmitter {
       const transcript = await transcribe({
         apiKey: this.storage.apiKey(),
         audioPath: path.join(session.directory, 'audio.wav'),
-        settings: this.storage.settings
+        settings: codingSettings(this.storage.settings)
       });
       session.meta.rawTranscript = transcript;
-      session.meta.finalTranscript = applyReplacements(transcript, this.storage.settings.replacements);
+      let edited = applyReplacements(transcript, this.storage.settings.replacements);
+      try { edited = (await applyWritingStyle(edited, this.storage.settings, this.storage.apiKey())).text; }
+      catch { session.meta.styleWarning = 'Stijl kon niet worden toegepast; origineel transcript gebruikt.'; }
+      session.meta.finalTranscript = expandSnippets(edited, this.storage.settings.snippets);
       session.meta.status = 'complete';
       session.meta.completedAt = new Date().toISOString();
       this.storage.writeMeta(session.directory, session.meta);
       this.lastTranscript = session.meta.finalTranscript;
       this.emit('history-changed');
+      if (session.noInsert) {
+        this.setState('clipboard', { message: 'Transcript gereed in Geschiedenis' });
+        this.returnToIdle(2200);
+        return;
+      }
       this.setState('inserting');
       const outcome = await this.insert(session.meta.finalTranscript, session.meta.targetWindow);
       if (outcome === 'ok') {
@@ -172,7 +181,11 @@ class SessionManager extends EventEmitter {
     await new Promise((resolve) => setTimeout(resolve, 45));
     const outcome = await new Promise((resolve) => {
       this.insertResolver = resolve;
-      this.nativeHelper.paste(expectedWindow);
+      if (this.nativeHelper.paste(expectedWindow) === false) {
+        this.insertResolver = null;
+        resolve('helper-unavailable');
+        return;
+      }
       setTimeout(() => {
         if (this.insertResolver === resolve) {
           this.insertResolver = null;
@@ -193,7 +206,7 @@ class SessionManager extends EventEmitter {
     if (!['idle', 'error', 'offline', 'clipboard', 'success'].includes(this.state)) return;
     if (this.state !== 'idle') this.setState('idle');
     this.setState('processing');
-    await this.process({ directory: record.directory, meta: record });
+    await this.process({ directory: record.directory, meta: record, noInsert: true });
   }
 
   async retryQueued() {
@@ -219,7 +232,7 @@ class SessionManager extends EventEmitter {
       if (fs.existsSync(wavPath)) {
         record.status = 'queuedForRetry';
         record.errorCode = 'interrupted';
-        record.errorMessage = 'Jot werd onderbroken; de opname is hersteld en staat klaar om opnieuw te proberen.';
+        record.errorMessage = 'TakkieAI werd onderbroken; de opname is hersteld en staat klaar om opnieuw te proberen.';
         recovered += 1;
       } else {
         record.status = 'failed';

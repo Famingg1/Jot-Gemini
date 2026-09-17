@@ -2,12 +2,12 @@
 
 const pageMeta = {
   history: ['Geschiedenis', 'Alles wat je hebt gedicteerd, lokaal bewaard.'],
-  dictionary: ['Woordenboek', 'Leer Jot hoe jouw namen en vaktermen geschreven worden.'],
+  dictionary: ['Woordenboek', 'Leer TakkieAI hoe jouw namen en vaktermen geschreven worden.'],
   general: ['Algemeen', 'Sneltoets, opstartgedrag en uiterlijk.'],
-  dictation: ['Dictatie', 'Bepaal hoe Jot luistert en je tekst afwerkt.'],
+  dictation: ['Dictatie', 'Bepaal hoe TakkieAI luistert en je tekst afwerkt.'],
   privacy: ['Privacy', 'Jouw sleutel, opnames en bewaartermijn.'],
   advanced: ['Geavanceerd', 'Modelkeuze en technische informatie.'],
-  about: ['Over Jot', 'Een open-source dicteerapp met Gemini.']
+  about: ['Over TakkieAI', 'Een open-source dicteerapp met Gemini.']
 };
 
 const state = { settings: null, history: [], stats: {}, versions: {}, section: 'history', dictation: 'idle' };
@@ -78,6 +78,7 @@ class AudioRecorder {
 const recorder = new AudioRecorder();
 
 function navigate(section) {
+  if (window.flowNavigate?.(section)) return;
   if (!pageMeta[section]) return;
   state.section = section;
   document.querySelectorAll('.nav-item').forEach((item) => {
@@ -102,13 +103,14 @@ async function updateSettings(patch) {
 
 function syncControls() {
   const settings = state.settings;
+  window.flowTheme?.(settings.theme);
   byId('hotkey-select').value = settings.hotkey;
   byId('launch-toggle').checked = settings.launchAtLogin;
   byId('theme-select').value = settings.theme;
   byId('smart-toggle').checked = settings.smartTranscription;
   byId('language-select').value = settings.language;
   byId('sounds-toggle').checked = settings.sounds;
-  byId('hud-toggle').checked = settings.showIdleIndicator;
+  byId('hud-position').value = settings.hudPosition || 'center';
   byId('retention-select').value = String(settings.audioRetentionDays);
   byId('model-input').value = settings.model;
   byId('microphone-select').value = settings.microphoneId;
@@ -288,6 +290,13 @@ function toast(message) {
 }
 
 function showNotice(message, isError = false) {
+  const settingsDialog = byId('settings-dialog');
+  if (settingsDialog?.open) {
+    let messageBox = settingsDialog.querySelector('.inline-error');
+    if (!messageBox) { messageBox = document.createElement('p'); messageBox.className = 'inline-error notice'; messageBox.setAttribute('role', 'status'); settingsDialog.querySelector('.settings-body').append(messageBox); }
+    messageBox.classList.toggle('is-error', isError); messageBox.textContent = message;
+    return;
+  }
   const notice = byId('notice'); notice.textContent = message; notice.hidden = false; notice.classList.toggle('is-error', isError);
   setTimeout(() => { notice.hidden = true; }, 6000);
 }
@@ -304,7 +313,7 @@ async function finishOnboarding() {
   await updateSettings({ onboardingComplete: true });
   byId('onboarding').hidden = true;
   if (state.settings.showIdleIndicator) window.jot.showHud();
-  toast(`Jot staat klaar. Houd ${hotkeyLabel(state.settings.hotkey).toLocaleLowerCase()} ingedrukt om te praten.`);
+  toast(`TakkieAI staat klaar. Houd ${hotkeyLabel(state.settings.hotkey).toLocaleLowerCase()} ingedrukt om te praten.`);
 }
 
 function bindEvents() {
@@ -341,7 +350,7 @@ function bindEvents() {
     ['language-select', 'change', () => ({ language: byId('language-select').value })],
     ['microphone-select', 'change', () => ({ microphoneId: byId('microphone-select').value })],
     ['sounds-toggle', 'change', () => ({ sounds: byId('sounds-toggle').checked })],
-    ['hud-toggle', 'change', () => ({ showIdleIndicator: byId('hud-toggle').checked })],
+    ['hud-position', 'change', () => ({ hudPosition: byId('hud-position').value })],
     ['retention-select', 'change', () => ({ audioRetentionDays: Number(byId('retention-select').value) })],
     ['model-input', 'change', () => ({ model: byId('model-input').value.trim() || 'gemini-3.5-transcribe' })]
   ];
@@ -361,7 +370,7 @@ function bindEvents() {
 
   document.querySelectorAll('.onboarding-next').forEach((button) => button.addEventListener('click', () => setOnboardingStep(onboardingStep + 1)));
   byId('onboarding-close').addEventListener('click', finishOnboarding);
-  byId('privacy-explainer').addEventListener('click', () => toast('Audio gaat naar Gemini; geschiedenis en instellingen blijven op deze pc. Er zijn geen analytics of Jot-servers.'));
+  byId('privacy-explainer').addEventListener('click', () => toast('Audio gaat naar Gemini; geschiedenis en instellingen blijven op deze pc. Er zijn geen analytics of TakkieAI-servers.'));
   byId('onboarding-key-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const button = event.submitter; const resultText = byId('onboarding-key-result'); button.disabled = true; button.textContent = 'Controleren…';
     const result = await window.jot.saveApiKey(byId('onboarding-key').value); button.disabled = false; button.textContent = 'Controleren';
@@ -393,8 +402,9 @@ async function initialize() {
   Object.assign(state, bootstrap);
   syncControls();
   renderHistory();
+  await window.flowInitialize?.();
   await loadMicrophones();
-  byId('diagnostics').textContent = `Jot ${bootstrap.versions.app}\nElectron ${bootstrap.versions.electron}\nWindows ${navigator.userAgent.match(/Windows NT [^;)]+/)?.[0] || 'Windows'}\nModel ${state.settings.model}\nAPI-key ${state.settings.hasApiKey ? 'opgeslagen' : 'niet ingesteld'}`;
+  byId('diagnostics').textContent = `TakkieAI ${bootstrap.versions.app}\nElectron ${bootstrap.versions.electron}\nWindows ${navigator.userAgent.match(/Windows NT [^;)]+/)?.[0] || 'Windows'}\nModel ${state.settings.model}\nAPI-key ${state.settings.hasApiKey ? 'opgeslagen' : 'niet ingesteld'}`;
   byId('version-label').textContent = `Versie ${bootstrap.versions.app}`;
   byId('onboarding').hidden = bootstrap.settings.onboardingComplete;
   if (!bootstrap.settings.onboardingComplete) setOnboardingStep(0);
@@ -403,5 +413,5 @@ async function initialize() {
 }
 
 initialize().catch((error) => {
-  document.body.textContent = `Jot kon niet starten: ${error.message}`;
+  document.body.textContent = `TakkieAI kon niet starten: ${error.message}`;
 });

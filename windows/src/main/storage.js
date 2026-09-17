@@ -10,16 +10,33 @@ const defaults = Object.freeze({
   hotkey: 'right-control',
   smartTranscription: true,
   sounds: true,
-  showIdleIndicator: false,
+  showIdleIndicator: true,
+  hudPosition: 'center',
+  hudDisplayId: '',
   launchAtLogin: false,
   language: 'auto',
   microphoneId: 'default',
   audioRetentionDays: 7,
-  theme: 'system',
+  theme: 'light',
   dictionary: [],
   replacements: [],
   endpoint: 'https://generativelanguage.googleapis.com/v1beta',
-  model: 'gemini-3.5-transcribe'
+  model: 'gemini-3.5-transcribe',
+  summaryModel: 'gemini-2.5-flash',
+  meetingModel: 'gemini-3.5-transcribe',
+  meetingMicrophone: true,
+  meetingSystemAudio: true,
+  meetingAutoTranscribe: true,
+  meetingAudioRetentionDays: 30,
+  largeHud: false,
+  preserveCode: true,
+  appLanguage: 'nl',
+  snippets: [],
+  writingStyle: 'natural',
+  transforms: [],
+  scratchpad: '',
+  codingProfiles: [],
+  activeCodingProfile: ''
 });
 
 function atomicWriteJson(file, value) {
@@ -136,6 +153,7 @@ class JotStorage {
     if (!Number.isFinite(days) || days <= 0) return;
     const threshold = now - days * 86400000;
     for (const record of this.listHistory()) {
+      if (!['complete', 'cancelled', 'silent'].includes(record.status)) continue;
       if (new Date(record.startedAt).getTime() >= threshold) continue;
       const audio = path.join(record.directory, 'audio.wav');
       if (fs.existsSync(audio)) fs.unlinkSync(audio);

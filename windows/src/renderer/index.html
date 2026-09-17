@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; media-src 'self' blob:">
-  <title>Jot</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; media-src 'self' blob: jot-audio:">
+  <title>TakkieAI</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="flow.css">
 </head>
 <body>
   <div id="app" class="app-shell" aria-busy="true">
     <aside class="sidebar" aria-label="Hoofdnavigatie">
-      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Jot</span></div>
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>TakkieAI</span></div>
       <nav id="nav">
         <button class="nav-item is-active" data-section="history"><span class="nav-icon">⌁</span>Geschiedenis</button>
         <button class="nav-item" data-section="dictionary"><span class="nav-icon">Aa</span>Woordenboek</button>
@@ -19,7 +20,7 @@
         <button class="nav-item" data-section="dictation"><span class="nav-icon">≋</span>Dictatie</button>
         <button class="nav-item" data-section="privacy"><span class="nav-icon">◈</span>Privacy</button>
         <button class="nav-item" data-section="advanced"><span class="nav-icon">{ }</span>Geavanceerd</button>
-        <button class="nav-item" data-section="about"><span class="nav-icon">i</span>Over Jot</button>
+        <button class="nav-item" data-section="about"><span class="nav-icon">i</span>Over TakkieAI</button>
       </nav>
       <div class="sidebar-status"><span id="status-dot" class="status-dot"></span><span id="sidebar-status-text">Klaar</span></div>
     </aside>
@@ -44,31 +45,31 @@
       </section>
 
       <section id="section-dictionary" class="page-section">
-        <div class="section-intro"><h2>Jouw woorden, goed gespeld</h2><p>Voeg namen, vaktermen en afkortingen toe. Jot stuurt maximaal 100 termen als vocabulary hints naar Gemini.</p></div>
+        <div class="section-intro"><h2>Jouw woorden, goed gespeld</h2><p>Voeg namen, vaktermen en afkortingen toe. TakkieAI stuurt maximaal 100 termen als vocabulary hints naar Gemini.</p></div>
         <form id="dictionary-form" class="inline-form"><label><span>Nieuw woord of begrip</span><input id="dictionary-term" maxlength="100" placeholder="Bijvoorbeeld: DoLessWithAI"></label><button class="primary-button" type="submit">Toevoegen</button></form>
         <div id="dictionary-list" class="token-list" aria-live="polite"></div>
         <div class="divider"></div>
         <div class="section-intro compact"><h2>Automatisch vervangen</h2><p>Pas vaste schrijfwijzen toe nadat Gemini klaar is.</p></div>
-        <form id="replacement-form" class="replacement-form"><label><span>Vervang</span><input id="replacement-from" maxlength="100" placeholder="jot ai"></label><label><span>Door</span><input id="replacement-to" maxlength="100" placeholder="Jot AI"></label><button class="secondary-button" type="submit">Regel toevoegen</button></form>
+        <form id="replacement-form" class="replacement-form"><label><span>Vervang</span><input id="replacement-from" maxlength="100" placeholder="jot ai"></label><label><span>Door</span><input id="replacement-to" maxlength="100" placeholder="TakkieAI AI"></label><button class="secondary-button" type="submit">Regel toevoegen</button></form>
         <div id="replacement-list" class="replacement-list"></div>
       </section>
 
       <section id="section-general" class="page-section settings-page">
         <div class="settings-group"><div><h2>Sneltoets</h2><p>Houd de toets ingedrukt om te praten. Druk tijdens het spreken op spatie voor handsfree.</p></div><label class="select-control"><span class="sr-only">Dicteertoets</span><select id="hotkey-select"><option value="right-control">Rechter Ctrl</option><option value="caps-lock">Caps Lock</option><option value="f8">F8</option></select></label></div>
-        <div class="settings-group"><div><h2>Start met Windows</h2><p>Jot blijft beschikbaar in het systeemvak zodra je inlogt.</p></div><label class="switch"><input id="launch-toggle" type="checkbox"><span></span></label></div>
+        <div class="settings-group"><div><h2>Start met Windows</h2><p>TakkieAI blijft beschikbaar in het systeemvak zodra je inlogt.</p></div><label class="switch"><input id="launch-toggle" type="checkbox"><span></span></label></div>
         <div class="settings-group"><div><h2>Thema</h2><p>Volg Windows of kies een vast licht of donker uiterlijk.</p></div><select id="theme-select"><option value="system">Windows volgen</option><option value="light">Licht</option><option value="dark">Donker</option></select></div>
       </section>
 
       <section id="section-dictation" class="page-section settings-page">
         <div class="settings-group"><div><h2>Smart transcription</h2><p>Verwijdert stopwoordjes, verwerkt zelfcorrecties en maakt lijsten en getallen leesbaar.</p></div><label class="switch"><input id="smart-toggle" type="checkbox"><span></span></label></div>
         <div class="settings-group"><div><h2>Taal</h2><p>Automatische herkenning kan tijdens één dictaat tussen talen wisselen.</p></div><select id="language-select"><option value="auto">Automatisch</option><option value="nl-NL">Nederlands</option><option value="en-US">Engels (VS)</option><option value="en-GB">Engels (VK)</option><option value="de-DE">Duits</option><option value="fr-FR">Frans</option><option value="es-ES">Spaans</option></select></div>
-        <div class="settings-group"><div><h2>Microfoon</h2><p id="microphone-help">Kies welke invoer Jot gebruikt.</p></div><select id="microphone-select"><option value="default">Systeemstandaard</option></select></div>
+        <div class="settings-group"><div><h2>Microfoon</h2><p id="microphone-help">Kies welke invoer TakkieAI gebruikt.</p></div><select id="microphone-select"><option value="default">Systeemstandaard</option></select></div>
         <div class="settings-group"><div><h2>Geluiden</h2><p>Korte feedback bij starten, stoppen, succes en fouten.</p></div><label class="switch"><input id="sounds-toggle" type="checkbox"><span></span></label></div>
-        <div class="settings-group"><div><h2>Rustindicator</h2><p>Toon de kleine Jot-balk onderaan je scherm als je niet dicteert.</p></div><label class="switch"><input id="hud-toggle" type="checkbox"><span></span></label></div>
+        <div class="settings-group"><div><h2>Opnamebalk</h2><p>Altijd zichtbaar zolang TakkieAI draait. Klik om te dicteren of sleep naar onderaan, links of rechts.</p></div><select id="hud-position" aria-label="Positie opnamebalk"><option value="center">Onderaan midden</option><option value="left">Midden links</option><option value="right">Midden rechts</option></select></div>
       </section>
 
       <section id="section-privacy" class="page-section settings-page">
-        <div class="privacy-summary"><span class="shield-icon">✓</span><div><h2>Rechtstreeks naar Google</h2><p>Audio gaat met jouw sleutel rechtstreeks van deze pc naar de Gemini API. Jot heeft geen account, server of analytics.</p></div></div>
+        <div class="privacy-summary"><span class="shield-icon">✓</span><div><h2>Rechtstreeks naar Google</h2><p>Audio gaat met jouw sleutel rechtstreeks van deze pc naar de Gemini API. TakkieAI heeft geen account, server of analytics.</p></div></div>
         <div class="settings-group stacked"><div><h2>Gemini API-key</h2><p id="api-key-status">Nog geen sleutel opgeslagen.</p></div><form id="api-key-form" class="key-form"><input id="api-key-input" type="password" maxlength="256" autocomplete="off" spellcheck="false" placeholder="AIza…"><button class="primary-button" type="submit">Controleren en opslaan</button><button id="api-key-clear" class="text-button" type="button">Verwijder sleutel</button></form></div>
         <div class="settings-group"><div><h2>Audio bewaren</h2><p>Transcripties blijven staan. Audio wordt na deze periode automatisch verwijderd.</p></div><select id="retention-select"><option value="1">1 dag</option><option value="7">7 dagen</option><option value="30">30 dagen</option><option value="0">Voor altijd</option></select></div>
       </section>
@@ -81,7 +82,7 @@
 
       <section id="section-about" class="page-section about-page">
         <span class="about-mark brand-mark"><i></i><i></i><i></i></span>
-        <h2>Jot voor Windows</h2>
+        <h2>TakkieAI voor Windows</h2>
         <p>Hold a key. Speak. It types.</p>
         <span id="version-label" class="version-label"></span>
         <div class="about-links"><button class="text-button external-link" data-url="https://github.com/">Open-sourceproject</button><button class="text-button external-link" data-url="https://ai.google.dev/gemini-api/docs/transcribe">Gemini Transcribe-documentatie</button></div>
@@ -94,15 +95,16 @@
     <div class="onboarding-panel">
       <div class="onboarding-progress" aria-label="Voortgang"><i></i><i></i><i></i><i></i></div>
       <button id="onboarding-close" class="icon-button onboarding-close" aria-label="Later instellen">×</button>
-      <section class="onboarding-step is-active" data-step="0"><div class="hero-pill" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div><h2>Spreek. Jot typt.</h2><p>Houd een toets ingedrukt, zeg wat je bedoelt en gepolijste tekst verschijnt waar je cursor staat.</p><button class="primary-button onboarding-next">Aan de slag</button><button class="text-button" id="privacy-explainer">Hoe werkt privacy?</button></section>
+      <section class="onboarding-step is-active" data-step="0"><div class="hero-pill" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div><h2>Spreek. TakkieAI typt.</h2><p>Houd een toets ingedrukt, zeg wat je bedoelt en gepolijste tekst verschijnt waar je cursor staat.</p><button class="primary-button onboarding-next">Aan de slag</button><button class="text-button" id="privacy-explainer">Hoe werkt privacy?</button></section>
       <section class="onboarding-step" data-step="1"><span class="step-icon key-icon">•••</span><h2>Neem je eigen Gemini-key mee</h2><p>De sleutel wordt versleuteld opgeslagen voor jouw Windows-account en alleen naar Google gestuurd.</p><form id="onboarding-key-form" class="onboarding-form"><input id="onboarding-key" type="password" placeholder="AIza…" autocomplete="off"><button class="primary-button" type="submit">Controleren</button></form><p id="onboarding-key-result" class="form-result" role="status"></p><button class="text-button onboarding-next">Voor nu overslaan</button></section>
-      <section class="onboarding-step" data-step="2"><span class="step-icon mic-icon">●</span><h2>Laat Jot je horen</h2><p>Windows vraagt één keer toestemming voor je microfoon. Zeg daarna iets om de meter te testen.</p><div class="mic-test"><div id="onboarding-meter"></div></div><button id="test-microphone" class="primary-button">Microfoon testen</button><p id="microphone-result" class="form-result" role="status"></p><button class="text-button onboarding-next">Doorgaan</button></section>
-      <section class="onboarding-step" data-step="3"><span class="step-icon ready-icon">✓</span><h2>Klaar om te praten</h2><p>Houd <strong id="onboarding-hotkey">rechter Ctrl</strong> ingedrukt. Laat los en je woorden verschijnen bij de cursor. Druk tijdens het praten op spatie voor handsfree.</p><div class="shortcut-demo"><kbd>Rechter Ctrl</kbd><span>vasthouden om te praten</span></div><button id="finish-onboarding" class="primary-button">Jot starten</button></section>
+      <section class="onboarding-step" data-step="2"><span class="step-icon mic-icon">●</span><h2>Laat TakkieAI je horen</h2><p>Windows vraagt één keer toestemming voor je microfoon. Zeg daarna iets om de meter te testen.</p><div class="mic-test"><div id="onboarding-meter"></div></div><button id="test-microphone" class="primary-button">Microfoon testen</button><p id="microphone-result" class="form-result" role="status"></p><button class="text-button onboarding-next">Doorgaan</button></section>
+      <section class="onboarding-step" data-step="3"><span class="step-icon ready-icon">✓</span><h2>Klaar om te praten</h2><p>Houd <strong id="onboarding-hotkey">rechter Ctrl</strong> ingedrukt. Laat los en je woorden verschijnen bij de cursor. Druk tijdens het praten op spatie voor handsfree.</p><div class="shortcut-demo"><kbd>Rechter Ctrl</kbd><span>vasthouden om te praten</span></div><button id="finish-onboarding" class="primary-button">TakkieAI starten</button></section>
     </div>
   </div>
 
   <dialog id="history-dialog" class="record-dialog"><button class="icon-button dialog-close" aria-label="Sluiten">×</button><div id="history-dialog-content"></div></dialog>
   <div id="toast-region" class="toast-region" aria-live="polite"></div>
+  <script src="flow.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

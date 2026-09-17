@@ -12,6 +12,7 @@ function extractOutputText(interaction) {
 function normalizeError(error) {
   const message = String(error?.message || error || 'Unknown Gemini error');
   const status = Number(error?.status || error?.code || 0);
+  if (/missing (?:gemini )?api key/i.test(message)) return { code: 'auth', message: 'Voeg je Gemini API-key toe via Instellingen → API & privacy. Je opname is bewaard.' };
   if (status === 401 || status === 403 || /api.?key|permission|unauth/i.test(message)) return { code: 'auth', message: 'Je Gemini API-key is ongeldig of heeft geen toegang tot dit model.' };
   if (status === 429 || /quota|rate.?limit|resource exhausted/i.test(message)) return { code: 'rate_limit', message: 'Gemini heeft de limiet bereikt. De opname is bewaard; probeer straks opnieuw.' };
   if (status >= 500 || /fetch failed|network|timeout|ENOTFOUND|ECONN/i.test(message)) return { code: 'network', message: 'Geen verbinding met Gemini. De opname is lokaal bewaard.' };

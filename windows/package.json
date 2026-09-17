@@ -1,7 +1,7 @@
 {
   "name": "jot-windows",
-  "version": "0.3.0",
-  "description": "Jot smart dictation for Windows, powered by Gemini",
+  "version": "0.4.1",
+  "description": "TakkieAI smart dictation for Windows, powered by Gemini",
   "main": "src/main/index.js",
   "author": "Jot contributors",
   "license": "Apache-2.0",
@@ -11,12 +11,15 @@
     "start": "npm run dev",
     "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1",
     "test": "node --test test/*.test.js",
-    "lint": "node --check src/main/index.js && node --check src/main/session-manager.js && node --check src/main/gemini.js && node --check src/main/storage.js && node --check src/preload.js && node --check src/renderer/app.js && node --check src/renderer/hud.js",
-    "build": "npm run lint && npm test && npm run build:native && electron-builder --win nsis --x64",
+    "lint": "node scripts/check.js",
+    "build": "npm run lint && npm test && npm run build:native && electron-builder --win nsis --x64 --publish never",
     "pack": "npm run build:native && electron-builder --dir --win --x64"
   },
   "dependencies": {
-    "@google/genai": "^2.19.0"
+    "@google/genai": "^2.19.0",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "electron-updater": "^6.8.9",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "electron": "^44.0.0",
@@ -24,15 +27,16 @@
   },
   "build": {
     "appId": "com.ammaar.jot",
-    "productName": "Jot",
-    "artifactName": "Jot-${version}-Windows-${arch}.${ext}",
+    "productName": "TakkieAI",
+    "artifactName": "TakkieAI-${version}-Windows-${arch}.${ext}",
     "directories": {
       "output": "dist"
     },
     "files": [
       "src/**/*",
       "native/bin/JotNativeHelper.exe",
-      "package.json"
+      "package.json",
+      "scripts/smoke.js"
     ],
     "asarUnpack": [
       "native/bin/JotNativeHelper.exe"
@@ -62,8 +66,16 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Jot",
+      "shortcutName": "TakkieAI",
       "runAfterFinish": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Famingg1",
+        "repo": "Jot-Gemini",
+        "releaseType": "release"
+      }
+    ]
   }
 }
