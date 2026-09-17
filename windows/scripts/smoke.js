@@ -113,7 +113,8 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     await js(`(() => {const f=document.querySelector('#section-snippets form');f.elements.label.value='mijn groet';f.elements.text.value='Met vriendelijke groet, Fahim';f.requestSubmit();})()`);await sleep(200);
     assert.equal(storage.settings.snippets[0]?.trigger,'mijn groet');results.flows.snippets = true;
     await navigate('scratchpad');
-    await js(`const e=document.getElementById('scratchpad-editor');e.value='Notitie blijft lokaal staan.';e.dispatchEvent(new Event('input'));`);await sleep(600);
+    await js(`const e=document.getElementById('scratchpad-editor');e.value='Notitie blijft lokaal staan.';e.dispatchEvent(new Event('input'));`);
+    for(let n=0;n<30&&storage.settings.scratchpad!=='Notitie blijft lokaal staan.';n++)await sleep(100);
     assert.equal(storage.settings.scratchpad,'Notitie blijft lokaal staan.');results.flows.scratchpad = true;
     await js(`document.getElementById('scratchpad-editor').value='Laatste wijziging voor navigatie';document.getElementById('scratchpad-editor').dispatchEvent(new Event('input'));window.flowNavigate('history');`);await sleep(300);
     assert.equal(storage.settings.scratchpad,'Laatste wijziging voor navigatie');results.flows.immediateDraftNavigation = true;
@@ -137,6 +138,11 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     assert.ok(hudWindow.isVisible());results.flows.hudAlwaysVisible=true;
     const point = await hudWindow.webContents.executeJavaScript(`(() => { const r=document.getElementById('idle-hit').getBoundingClientRect(); return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}; })()`);
     hudWindow.webContents.sendInputEvent({type:'mouseMove', ...point});
+    await sleep(250);
+    assert.equal(await hudWindow.webContents.executeJavaScript(`getComputedStyle(document.querySelector('.idle-action')).opacity`), '1');
+    assert.equal(await hudWindow.webContents.executeJavaScript(`getComputedStyle(document.getElementById('wave')).display`), 'none');
+    await shot('hud-hover-record', hudWindow);
+    results.flows.idleHoverRecordButton = true;
     hudWindow.webContents.sendInputEvent({type:'mouseDown', button:'left', clickCount:1, ...point});
     await sleep(60);
     hudWindow.webContents.sendInputEvent({type:'mouseMove', x:point.x+25,y:point.y, modifiers:['leftButtonDown']});

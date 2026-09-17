@@ -1,5 +1,9 @@
 # TakkieAI 0.4.1 — opnamebalk en updates
 
+## Aanpassing 0.4.2
+
+De ruststand is nu 48 × 12 px, halfdoorzichtig zwart, zonder tekst of waveform. Hover toont een 112 × 32 px opnameknop. Audiolevels worden alleen tijdens opnemen getekend. De smoke controleert hover, verborgen waveform en slepen zonder opname; screenshots staan in `windows/screenshots/quiet042b`. De scratchpad-test wacht nu op de opgeslagen waarde in plaats van een vaste korte pauze.
+
 De opnamebalk blijft zichtbaar wanneer het hoofdvenster sluit, na een opname en na een fout. Instellingen bieden onderaan midden, midden links en midden rechts. Slepen kiest de dichtstbijzijnde positie op het scherm waar je loslaat; positie en scherm worden lokaal bewaard.
 
 ## Internetupdates

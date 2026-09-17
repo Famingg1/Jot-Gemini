@@ -81,6 +81,7 @@ pasteButton.addEventListener('click', () => window.jot.pasteLast());
 
 window.jot.onHudState(render);
 window.jot.onHudLevel((level) => {
+  if (!['listening', 'locked', 'recording'].includes(state)) return;
   bars.forEach((bar, index) => {
     const shaped = Math.max(.22, Math.min(1, level * (1.35 - Math.abs(index - (bars.length - 1) / 2) * .12)));
     bar.style.setProperty('--level', shaped.toFixed(2));
