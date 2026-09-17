@@ -119,6 +119,16 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     await js(`document.getElementById('scratchpad-editor').value='Laatste wijziging voor navigatie';document.getElementById('scratchpad-editor').dispatchEvent(new Event('input'));window.flowNavigate('history');`);await sleep(300);
     assert.equal(storage.settings.scratchpad,'Laatste wijziging voor navigatie');results.flows.immediateDraftNavigation = true;
     await navigate('general');await shot('03-settings-general');
+    await js(`document.getElementById('shortcut-add').click()`);await sleep(150);
+    assert.equal(await js(`document.getElementById('shortcut-recorder').hidden`),false);
+    await js(`for(const [type,code] of [['keydown','ControlLeft'],['keydown','KeyK'],['keyup','KeyK'],['keyup','ControlLeft']])document.dispatchEvent(new KeyboardEvent(type,{code,bubbles:true,cancelable:true}));document.getElementById('shortcut-save').click();`);await sleep(250);
+    assert.deepEqual(storage.settings.hotkeys,[['ControlRight'],['ControlLeft','KeyK']]);
+    assert.equal(sessions.current,null,'Recording a shortcut must not start audio');
+    await shot('settings-custom-shortcuts');
+    await js(`document.getElementById('shortcut-add').click()`);await sleep(100);
+    await js(`document.dispatchEvent(new KeyboardEvent('keydown',{code:'Escape',bubbles:true,cancelable:true}))`);await sleep(100);
+    assert.equal(await js(`document.getElementById('shortcut-recorder').hidden`),true);
+    assert.equal(storage.settings.hotkeys.length,2);results.flows.recordCustomShortcut=true;
     results.flows.hudDockPositions = {};
     assert.equal(await hudWindow.webContents.executeJavaScript(`document.getElementById('pill').classList.contains('idle')`), true);
     for (const position of ['left', 'right', 'center']) {

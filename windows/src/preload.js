@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('jot', {
   bootstrap: () => ipcRenderer.invoke('app:bootstrap'),
+  recordShortcut: enabled => ipcRenderer.invoke('shortcut:record', enabled),
   listMeetings: query => ipcRenderer.invoke('meeting:list', query),
   getMeeting: id => ipcRenderer.invoke('meeting:get', id),
   createMeeting: options => ipcRenderer.invoke('meeting:create', options),

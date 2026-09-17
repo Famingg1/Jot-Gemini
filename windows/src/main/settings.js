@@ -5,6 +5,7 @@ function text(value, max) { return typeof value === 'string' ? value.slice(0, ma
 function sanitizeSettingsPatch(patch = {}) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('Ongeldige instellingen.');
   const clean = {};
+  if (patch.hotkeys !== undefined) clean.hotkeys = require('../renderer/hotkeys').validate(patch.hotkeys);
   for (const key of ['onboardingComplete', 'smartTranscription', 'sounds', 'showIdleIndicator', 'launchAtLogin', 'meetingMicrophone', 'meetingSystemAudio', 'meetingAutoTranscribe', 'largeHud', 'preserveCode']) {
     if (typeof patch[key] === 'boolean') clean[key] = patch[key];
   }

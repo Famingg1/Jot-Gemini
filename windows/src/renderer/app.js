@@ -93,6 +93,7 @@ function navigate(section) {
 }
 
 function hotkeyLabel(value) {
+  if (state.settings?.hotkeys?.length) return window.TakkieHotkeys.label(state.settings.hotkeys[0]);
   return { 'right-control': 'Rechter Ctrl', 'caps-lock': 'Caps Lock', f8: 'F8' }[value] || 'Rechter Ctrl';
 }
 
@@ -104,7 +105,7 @@ async function updateSettings(patch) {
 function syncControls() {
   const settings = state.settings;
   window.flowTheme?.(settings.theme);
-  byId('hotkey-select').value = settings.hotkey;
+  window.renderHotkeys?.(settings);
   byId('launch-toggle').checked = settings.launchAtLogin;
   byId('theme-select').value = settings.theme;
   byId('smart-toggle').checked = settings.smartTranscription;
@@ -343,7 +344,6 @@ function bindEvents() {
   });
 
   const settingBindings = [
-    ['hotkey-select', 'change', () => ({ hotkey: byId('hotkey-select').value })],
     ['launch-toggle', 'change', () => ({ launchAtLogin: byId('launch-toggle').checked })],
     ['theme-select', 'change', () => ({ theme: byId('theme-select').value })],
     ['smart-toggle', 'change', () => ({ smartTranscription: byId('smart-toggle').checked })],

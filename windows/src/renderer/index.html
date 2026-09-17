@@ -55,7 +55,7 @@
       </section>
 
       <section id="section-general" class="page-section settings-page">
-        <div class="settings-group"><div><h2>Sneltoets</h2><p>Houd de toets ingedrukt om te praten. Druk tijdens het spreken op spatie voor handsfree.</p></div><label class="select-control"><span class="sr-only">Dicteertoets</span><select id="hotkey-select"><option value="right-control">Rechter Ctrl</option><option value="caps-lock">Caps Lock</option><option value="f8">F8</option></select></label></div>
+        <div class="settings-group shortcut-group"><div><h2>Sneltoetsen</h2><p>Houd een combinatie ingedrukt om te praten. Spatie schakelt naar handsfree.</p><div id="shortcut-list"></div><button id="shortcut-add" type="button">+ Sneltoets opnemen</button><div id="shortcut-recorder" hidden><p id="shortcut-preview" role="status">Druk je toetsencombinatie in…</p><button id="shortcut-save" type="button" disabled>Opslaan</button> <button id="shortcut-cancel" type="button">Annuleren</button></div><p id="shortcut-error" role="alert"></p></div></div>
         <div class="settings-group"><div><h2>Start met Windows</h2><p>TakkieAI blijft beschikbaar in het systeemvak zodra je inlogt.</p></div><label class="switch"><input id="launch-toggle" type="checkbox"><span></span></label></div>
         <div class="settings-group"><div><h2>Thema</h2><p>Volg Windows of kies een vast licht of donker uiterlijk.</p></div><select id="theme-select"><option value="system">Windows volgen</option><option value="light">Licht</option><option value="dark">Donker</option></select></div>
       </section>
@@ -105,6 +105,9 @@
   <dialog id="history-dialog" class="record-dialog"><button class="icon-button dialog-close" aria-label="Sluiten">×</button><div id="history-dialog-content"></div></dialog>
   <div id="toast-region" class="toast-region" aria-live="polite"></div>
   <script src="flow.js"></script>
+  <link rel="stylesheet" href="shortcuts.css">
+  <script src="hotkeys.js"></script>
+  <script src="shortcut-ui.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

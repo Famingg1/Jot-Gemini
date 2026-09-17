@@ -27,7 +27,7 @@ class NativeHelper extends EventEmitter {
       ? path.join(this.resourcesPath, 'app.asar.unpacked', 'native', 'bin', 'JotNativeHelper.exe')
       : path.join(this.appPath, 'native', 'bin', 'JotNativeHelper.exe');
     try {
-      this.process = spawn(executable, [String(virtualKeys[hotkey] || virtualKeys['right-control'])], {
+      this.process = spawn(executable, [Array.isArray(hotkey) ? require('../renderer/hotkeys').serialize(hotkey) : String(virtualKeys[hotkey] || virtualKeys['right-control'])], {
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe']
       });
@@ -73,7 +73,7 @@ class NativeHelper extends EventEmitter {
   }
 
   configure(hotkey) {
-    this.send(`CONFIG ${virtualKeys[hotkey] || virtualKeys['right-control']}`);
+    this.send(`CONFIG ${Array.isArray(hotkey) ? require('../renderer/hotkeys').serialize(hotkey) : virtualKeys[hotkey] || virtualKeys['right-control']}`);
   }
 
   typeText(text, expectedWindow) {

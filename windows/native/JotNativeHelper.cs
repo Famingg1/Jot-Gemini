@@ -19,7 +19,8 @@ internal static class JotNativeHelper
     private const int VK_ESCAPE = 0x1B;
     private const int VK_SPACE = 0x20;
     private const int EM_GETPASSWORDCHAR = 0x00D2;
-    private static int hotkey = 0xA3; // Right Control
+    private static readonly ShortcutState shortcuts = new ShortcutState();
+    private static readonly object shortcutGate = new object();
     private static bool hotkeyDown;
     private static IntPtr hook = IntPtr.Zero;
     private static LowLevelKeyboardProc callback = HookCallback;
@@ -27,7 +28,7 @@ internal static class JotNativeHelper
     [STAThread]
     private static void Main(string[] args)
     {
-        if (args.Length > 0) int.TryParse(args[0], out hotkey);
+        if (args.Length > 0) shortcuts.Configure(args[0]);
         hook = SetHook(callback);
         if (hook == IntPtr.Zero)
         {
@@ -69,9 +70,12 @@ internal static class JotNativeHelper
                 bool up = wParam == (IntPtr)WM_KEYUP || wParam == (IntPtr)WM_SYSKEYUP;
                 int key = (int)data.vkCode;
 
-                if (key == hotkey)
+                bool swallow;
+                string transition;
+                lock(shortcutGate) { transition=shortcuts.Step(key, down, out swallow); }
+                if (transition != null)
                 {
-                    if (down && !hotkeyDown)
+                    if (transition == "down")
                     {
                         if (IsSecureField())
                         {
@@ -83,13 +87,13 @@ internal static class JotNativeHelper
                             EmitForeground("down");
                         }
                     }
-                    else if (up && hotkeyDown)
+                    else if (transition == "up" && hotkeyDown)
                     {
                         hotkeyDown = false;
                         EmitForeground("up");
                     }
-                    return (IntPtr)1;
                 }
+                if (swallow) return (IntPtr)1;
                 if (down && key == VK_ESCAPE)
                 {
                     EmitForeground("escape");
@@ -115,8 +119,7 @@ internal static class JotNativeHelper
                 string command = parts[0].ToUpperInvariant();
                 if (command == "CONFIG" && parts.Length > 1)
                 {
-                    int value;
-                    if (int.TryParse(parts[1], out value)) hotkey = value;
+                    lock(shortcutGate) { shortcuts.Configure(parts[1]); hotkeyDown = false; }
                 }
                 else if (command == "TYPE" && parts.Length > 2)
                 {

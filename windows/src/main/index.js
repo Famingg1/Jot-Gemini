@@ -14,6 +14,8 @@ const { sanitizeSettingsPatch } = require('./settings');
 const { createDesktopServices } = require('./desktop-services');
 const { dockBounds, nearestAnchor } = require('./hud-layout');
 let hudDrag = null;
+let recordingShortcut = false;
+let shortcutTimeout;
 
 let mainWindow;
 let hudWindow;
@@ -69,7 +71,7 @@ app.whenReady().then(async () => {
   nativeHelper = new NativeHelper({ appPath: app.getAppPath(), resourcesPath: process.resourcesPath, packaged: app.isPackaged });
   nativeHelper.on('event', handleNativeEvent);
   nativeHelper.on('error', (error) => broadcastDiagnostic(error.message));
-  if (!process.env.JOT_SMOKE) nativeHelper.start(storage.settings.hotkey);
+  if (!process.env.JOT_SMOKE) nativeHelper.start(require('../renderer/hotkeys').fromSettings(storage.settings));
 
   sessions = new SessionManager({ storage, nativeHelper, clipboard });
   sessions.on('state', (state) => {
@@ -127,11 +129,20 @@ function createMainWindow() {
     if (!app.getLoginItemSettings().wasOpenedAtLogin || process.env.JOT_CAPTURE_DIR) mainWindow.show();
   });
   mainWindow.on('close', (event) => {
+    endShortcutRecording();
     if (!isQuitting) {
       event.preventDefault();
       mainWindow.hide();
     }
   });
+  mainWindow.on('blur', endShortcutRecording);
+}
+
+function endShortcutRecording() {
+  clearTimeout(shortcutTimeout);
+  if (!recordingShortcut) return;
+  recordingShortcut = false;
+  nativeHelper?.configure(require('../renderer/hotkeys').fromSettings(storage.settings));
 }
 
 function createHudWindow() {
@@ -211,6 +222,7 @@ function updateTray() {
 
 function handleNativeEvent(event) {
   if (!sessions) return;
+  if (recordingShortcut && ['down','up','lock','escape','secure'].includes(event.type)) return;
   if (services?.active() && ['down','up','lock','escape','secure'].includes(event.type)) return;
   if (event.hwnd && ['down', 'up', 'lock', 'escape', 'secure'].includes(event.type)) lastTarget = event;
   if (event.type === 'down') {
@@ -259,15 +271,26 @@ function registerIpc() {
     versions: { app: app.getVersion(), electron: process.versions.electron }
   }), true);
   handle('settings:update', (_event, patch) => {
+    if ((patch?.hotkeys !== undefined || patch?.hotkey !== undefined) && sessions.current) throw new Error('Stop eerst je dictaat voordat je sneltoetsen wijzigt.');
     const next = storage.updateSettings({ ...sanitizeSettingsPatch(patch || {}), showIdleIndicator: true });
     nativeTheme.themeSource = next.theme;
-    nativeHelper.configure(next.hotkey);
+    if (!recordingShortcut && (patch.hotkeys !== undefined || patch.hotkey !== undefined)) nativeHelper.configure(require('../renderer/hotkeys').fromSettings(next));
     app.setLoginItemSettings({ openAtLogin: next.launchAtLogin, path: app.getPath('exe') });
     updateTray();
     mainWindow.webContents.send('settings:changed', publicSettings());
     hudWindow.webContents.send('settings:changed', publicSettings());
     positionHud(); hudWindow.showInactive();
     return publicSettings();
+  });
+  handle('shortcut:record', (_event, enabled) => {
+    if (enabled === true) {
+      if (sessions.current || services?.active()) throw new Error('Stop eerst de opname.');
+      recordingShortcut = true;
+      nativeHelper.send('CONFIG -');
+      clearTimeout(shortcutTimeout);
+      shortcutTimeout = setTimeout(endShortcutRecording, 30000);
+    } else endShortcutRecording();
+    return true;
   });
   handle('api-key:save', async (_event, key) => {
     const clean = String(key || '').trim();
@@ -353,6 +376,7 @@ function registerIpc() {
 }
 
 function hotkeyLabel(key) {
+  if (storage?.settings.hotkeys?.length) return require('../renderer/hotkeys').label(storage.settings.hotkeys[0]);
   return { 'right-control': 'rechter Ctrl', 'caps-lock': 'Caps Lock', f8: 'F8' }[key] || 'rechter Ctrl';
 }
 
