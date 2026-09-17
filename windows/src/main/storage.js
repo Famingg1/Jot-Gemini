@@ -27,6 +27,7 @@ const defaults = Object.freeze({
   meetingModel: 'gemini-3.5-transcribe',
   meetingMicrophone: true,
   meetingSystemAudio: true,
+  meetingAudioApp: 'chrome',
   meetingAutoTranscribe: true,
   meetingAudioRetentionDays: 30,
   largeHud: false,

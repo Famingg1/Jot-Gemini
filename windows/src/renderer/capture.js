@@ -8,14 +8,15 @@ async function start(command) {
   const a = { id: command.id, streams: [], pending: new Set(), flushes: new Map(), failed: false }; active = a;
   const enabled = [command.mic !== false, command.system !== false];
   const streams = [null,null];
-  if (enabled[0]) { streams[0] = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: command.microphoneId && command.microphoneId !== 'default' ? { exact: command.microphoneId } : undefined, echoCancellation: true, noiseSuppression: true }, video: false }); a.streams.push(streams[0]); }
-  if (enabled[1]) { streams[1] = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: { width: 1, height: 1, frameRate: 1 } }); a.streams.push(streams[1]); if (!streams[1].getAudioTracks().length) throw new Error('Windows gaf geen systeemgeluid. Kies een audio-uitvoer of schakel systeemgeluid uit.'); }
+  if (enabled[0]) { try { streams[0] = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: command.microphoneId && command.microphoneId !== 'default' ? { exact: command.microphoneId } : undefined, echoCancellation: true, noiseSuppression: true }, video: false }); a.streams.push(streams[0]); } catch(error) { throw captureSources.sourceError('mic',error); } }
+  if (enabled[1] && !command.nativeSystem) { try { streams[1] = await captureSources.systemAudio(options=>navigator.mediaDevices.getDisplayMedia(options)); a.streams.push(streams[1]); if (!streams[1].getAudioTracks().length) throw new Error('Geen systeemgeluid ontvangen.'); } catch(error) { throw captureSources.sourceError('system',error); } }
   a.context = new AudioContext({ sampleRate: 16000 });
   await a.context.audioWorklet.addModule('audio-worklet.js');
-  a.node = new AudioWorkletNode(a.context, 'meeting-pcm', { numberOfInputs: 2, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { sources: enabled } });
+  a.node = new AudioWorkletNode(a.context, 'meeting-pcm', { numberOfInputs: 2, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { sources: enabled,nativeSystem:command.nativeSystem } });
   a.node.onprocessorerror = () => fail(new Error('Audioverwerking onderbroken.'), a);
   a.node.port.onmessage = event => {
     if (active !== a) return; const payload = event.data;
+    if(payload.type==='fault')return fail(new Error(payload.message),a);
     if (payload.type === 'chunk') {
       if (a.pending.size >= 12) return fail(new Error('Opslag te traag; opname veilig gestopt.'), a);
       const promise = meetingCapture.chunk({ id: a.id, source: payload.source, sequence: payload.sequence, sampleOffset: payload.sampleOffset, pcm: new Uint8Array(payload.pcm) });
@@ -34,6 +35,7 @@ async function flush() {
   await Promise.all([...a.pending]); if (a.failed) throw new Error('Audio opslag mislukt.');
 }
 let commands = Promise.resolve();
+meetingCapture.onAppAudio(value=>{if(active?.id===value.id&&active.node){const pcm=new Uint8Array(value.pcm);active.node.port.postMessage({type:'native',pcm:pcm.buffer},[pcm.buffer]);}});
 meetingCapture.onCommand(command => {
   commands = commands.then(async () => {
     try {

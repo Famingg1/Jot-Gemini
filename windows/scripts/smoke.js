@@ -8,11 +8,52 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function run({ mainWindow, hudWindow, services, storage, sessions, captureConsoleErrors }) {
   const root = path.resolve(process.env.JOT_CAPTURE_DIR || path.join(__dirname, '..', 'screenshots'));
   fs.mkdirSync(root, { recursive: true });
+  storage.updateSettings({meetingAudioApp:'all'});
   const results = { startedAt: new Date().toISOString(), flows: {}, errors: [], profile: storage.root };
   const js = code => mainWindow.webContents.executeJavaScript(code, true);
   const shot = async (name, window = mainWindow) => { await sleep(250); fs.writeFileSync(path.join(root, `${name}.png`), (await window.webContents.capturePage()).toPNG()); };
   const navigate = async id => { await js(`window.flowNavigate(${JSON.stringify(id)})`); await sleep(250); };
   const click = async (selector, text) => { await js(`(() => { const candidates = [...document.querySelectorAll(${JSON.stringify(selector)})].filter(e => e.offsetParent !== null); const el = ${text ? `candidates.find(e=>e.textContent.includes(${JSON.stringify(text)}))` : 'candidates[0]'}; if(!el) throw Error('Missing visible control: '+${JSON.stringify(text || selector)}); el.click(); })()`); await sleep(200); };
+  const externalTone = () => {
+    const pcm=Buffer.alloc(16000*3*2);
+    for(let n=0;n<pcm.length/2;n++)pcm.writeInt16LE(Math.round(600*Math.sin(2*Math.PI*523*n/16000)*Math.min(1,n/800,(pcm.length/2-n)/800)),n*2);
+    const file=path.join(root,'diagnostic-tone.wav');fs.writeFileSync(file,require('../src/main/wav').pcmToWav(pcm,16000));
+    const child=require('node:child_process').spawn('powershell.exe',['-NoProfile','-Command','$p=New-Object System.Media.SoundPlayer $env:JOT_TEST_TONE; $p.PlaySync();'],{windowsHide:true,env:{...process.env,JOT_TEST_TONE:file},stdio:'ignore'});
+    return new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error('Test tone failed')));});
+  };
+  if(process.env.JOT_PANEL_TEST){
+    const panelErrors=[];
+    try{
+      storage.updateSettings({meetingAutoTranscribe:false});await sleep(600);
+      await navigate('notetaker');await click('button','Nieuwe opname');
+      assert.deepEqual(await js(`[...document.querySelector('#meeting-audio-app').options].map(o=>o.value)`),['chrome','teams','zoom','all']);
+      await js(`document.querySelector('#meeting-title').value='Projectoverleg · TakkieAI';document.querySelector('#meeting-audio-app').value='chrome';document.querySelector('#new-meeting-form').requestSubmit()`);
+      for(let n=0;n<60&&!services.panel.window;n++)await sleep(250);
+      assert.ok(services.panel.window,'Separate meeting window opens');const panel=services.panel.window;
+      panel.webContents.on('console-message',(_e,d)=>{if(d.level==='error')panelErrors.push(d.message);});
+      const pj=code=>panel.webContents.executeJavaScript(code,true);
+      await sleep(1600);assert.ok(services.active());assert.equal(services.manager.state.audioApp,'chrome');
+      await pj(`document.querySelector('#notes').value='Bespreken: planning en volgende stappen.';document.querySelector('#notes').dispatchEvent(new Event('input'));window.flushMeetingNotes()`);
+      assert.equal(services.meetings.get(services.manager.active.id).notes,'Bespreken: planning en volgende stappen.');
+      await shot('meeting-panel-notes',panel);await pj(`document.querySelector('#tab-transcript').click()`);await shot('meeting-panel-transcript',panel);
+      await pj(`document.querySelector('#pause').click()`);await sleep(800);assert.equal(services.manager.state.state,'paused');await shot('meeting-panel-paused',panel);
+      await pj(`document.querySelector('#pause').click()`);await sleep(700);assert.equal(services.manager.state.state,'recording');
+      panel.close();await sleep(500);assert.equal(panel.isVisible(),false);assert.ok(services.active());await services.panel.open(services.manager.active.id);
+      panel.setSize(375,650);await sleep(300);assert.ok(await pj(`document.documentElement.scrollWidth<=innerWidth`));await shot('meeting-panel-375',panel);
+      const id=services.manager.active.id;await pj(`document.querySelector('#stop').click()`);await sleep(900);assert.equal(services.active(),false);assert.equal(services.meetings.meta(id).state,'saved');
+      await pj(`document.querySelector('#tab-summary').click()`);await shot('meeting-panel-summary',panel);
+      assert.ok(await pj(`!document.querySelector('#generate').hidden`));
+      const saved=services.meetings.get(id);assert.ok(saved.durationMs>1500);assert.ok(saved.manifest.sources.system.samples>0);assert.ok(saved.manifest.sources.mic.samples>0);
+      // Seed local fixtures, not fabricated product content, to verify rendered results and error state.
+      services.meetings.saveDocument(id,'summary',{summary:'Planning besproken.',decisions:['Vrijdag opleveren.'],actions:[{text:'Concept uitwerken',owner:'Fahim'}]});
+      services.meetings.saveDocument(id,'transcript',{segments:[{startMs:0,speakerId:'you',text:'Laten we de planning bespreken.'}]});services.manager.emit('changed');await sleep(300);await shot('meeting-panel-results',panel);
+      services.meetings.saveMeta(id,{error:{message:'Test: verbinding onderbroken.'}});services.manager.emit('changed');await sleep(300);await shot('meeting-panel-error',panel);
+      assert.ok(await pj(`!document.querySelector('#error').hidden`));assert.equal(panelErrors.length,0);
+      results.flows.panel={durationMs:saved.durationMs,app:'chrome',pauseResume:true,notesSaved:true,closeKeepsRecording:true,narrowWidth:375,consoleErrors:panelErrors,uploaded:false};results.ok=true;
+    }catch(error){results.ok=false;results.errors.push(error.stack||String(error));process.exitCode=1;}
+    finally{fs.writeFileSync(path.join(root,'panel.json'),JSON.stringify(results,null,2));}
+    return;
+  }
   if (process.env.JOT_PROCESS_CRASH) {
     const markerPath = path.join(root, 'process-crash-checkpoint.json');
     const digest = bytes => require('node:crypto').createHash('sha256').update(bytes).digest('hex');
@@ -79,12 +120,29 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     return;
   }
   if (process.env.JOT_SYSTEM_TEST) {
+    if (process.env.JOT_AUDIO_DIAGNOSTIC) {
+      storage.updateSettings({meetingAutoTranscribe:false});
+      results.devices=await services.captureWindow.webContents.executeJavaScript(`navigator.mediaDevices.enumerateDevices().then(ds=>ds.map(d=>({kind:d.kind,label:d.label})))`);
+      for(const options of [{microphone:true,systemAudio:false},{microphone:false,systemAudio:true},{microphone:true,systemAudio:true}]) {
+        const test={...options};
+        try {
+          const meeting=await js(`window.jot.startMeeting(${JSON.stringify({title:'Local hardware diagnostic',...options})})`);
+          if(options.systemAudio)await externalTone();else await sleep(2200);
+          const saved=await js(`window.jot.stopMeeting()`);
+          test.ok=true;test.durationMs=saved.durationMs;
+          test.samples=services.meetings.manifest(meeting.id).sources;
+          if(options.systemAudio){const pcm=fs.readFileSync(services.meetings.audioPath(meeting.id,'system',0)).subarray(44);let energy=0;for(let n=0;n<pcm.length;n+=2)energy+=pcm.readInt16LE(n)**2;test.systemRms=Math.sqrt(energy/(pcm.length/2));assert.ok(test.systemRms>5,'Real system audio must contain the external tone');}
+        }catch(error){test.ok=false;test.error=error.message;}
+        results.flows[options.microphone?(options.systemAudio?'both':'mic'):'system']=test;
+        await sleep(400);
+      }
+      results.finishedAt=new Date().toISOString();fs.writeFileSync(path.join(root,'hardware.json'),JSON.stringify(results,null,2));return;
+    }
     try {
       storage.updateSettings({ meetingAutoTranscribe: false });
       await sleep(500);
-      await js(`window.testToneContext=new AudioContext();window.testTone=window.testToneContext.createOscillator();window.testTone.frequency.value=440;window.testGain=window.testToneContext.createGain();window.testGain.gain.value=0.025;window.testTone.connect(window.testGain).connect(window.testToneContext.destination);window.testTone.start();window.testToneContext.resume();`);
       await js(`window.jot.startMeeting({title:'Local Windows loopback verification',microphone:false,systemAudio:true})`);
-      await sleep(3000);
+      await externalTone();
       const saved=await js(`window.jot.stopMeeting()`);
       const pcm=fs.readFileSync(services.meetings.audioPath(saved.id,'system',0)).subarray(44);
       let energy=0;for(let n=0;n<pcm.length;n+=2)energy+=pcm.readInt16LE(n)**2;
@@ -199,12 +257,11 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     results.flows.captureRendererCrashRecovery={durationMs:recovered.durationMs,restartSucceeded:true};
     await shot('10-notetaker-populated');
     if (process.env.JOT_LOOPBACK_TEST) {
-      await js(`window.testToneContext = new AudioContext(); window.testTone = window.testToneContext.createOscillator(); window.testGain = window.testToneContext.createGain(); window.testGain.gain.value = 0.015; window.testTone.connect(window.testGain).connect(window.testToneContext.destination); window.testTone.start(); window.testToneContext.resume();`);
       let dual;
       try {
         await js(`window.jot.startMeeting({title:'Synthetic dual-source smoke',microphone:true,systemAudio:true})`);
-        await sleep(2200);dual = await js(`window.jot.stopMeeting()`);
-      } finally { await js(`window.testTone.stop(); window.testToneContext.close();`); }
+        await externalTone();dual = await js(`window.jot.stopMeeting()`);
+      } finally { /* The external test tone process exits after playback. */ }
       const manifest = services.meetings.manifest(dual.id);
       assert.ok(manifest.sources.mic.samples > 16000);assert.ok(manifest.sources.system.samples > 16000);
       const pcm = fs.readFileSync(services.meetings.audioPath(dual.id,'system',0)).subarray(44);

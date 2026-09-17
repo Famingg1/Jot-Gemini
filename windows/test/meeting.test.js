@@ -61,6 +61,7 @@ test('AI processing serializes different meetings and skips deleted queued jobs'
 });
 test('stale capture rejection cannot stop a replacement recording', () => {
   const vm=require('node:vm'); const faults=[]; const context=vm.createContext({meetingCapture:{onCommand(){},fault:value=>faults.push(value)},setTimeout,clearTimeout});
+  context.meetingCapture.onAppAudio=()=>{};
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer/capture.js'),'utf8'),context);
   vm.runInContext("const oldCapture={id:'old'}; active={id:'new'}; fail(new Error('late write failure'),oldCapture);",context);
   assert.equal(faults.length,0); assert.equal(vm.runInContext('active.id',context),'new');

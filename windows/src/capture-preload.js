@@ -2,6 +2,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('meetingCapture', {
   onCommand: callback => ipcRenderer.on('meeting-capture:command', (_event, command) => callback(command)),
+  onAppAudio: callback => ipcRenderer.on('meeting-capture:app-audio', (_event, payload) => callback(payload)),
   ack: payload => ipcRenderer.send('meeting-capture:ack', payload),
   chunk: payload => ipcRenderer.invoke('meeting-capture:chunk', payload),
   levels: payload => ipcRenderer.send('meeting-capture:levels', payload),

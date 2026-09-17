@@ -11,6 +11,7 @@ function sanitizeSettingsPatch(patch = {}) {
   }
   for (const [key, choices] of Object.entries({
     hotkey: ['right-control', 'caps-lock', 'f8'], theme: ['system', 'light', 'dark'],
+    meetingAudioApp: ['chrome','teams','zoom','all'],
     language: ['auto', 'nl-NL', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'es-ES'],
     writingStyle: ['natural', 'concise', 'formal', 'code'], appLanguage: ['nl', 'en'],
     hudPosition: ['left', 'center', 'right']

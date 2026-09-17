@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('jot', {
   recordShortcut: enabled => ipcRenderer.invoke('shortcut:record', enabled),
   listMeetings: query => ipcRenderer.invoke('meeting:list', query),
   getMeeting: id => ipcRenderer.invoke('meeting:get', id),
+  openMeetingPanel: id => ipcRenderer.invoke('meeting:panel', id),
   createMeeting: options => ipcRenderer.invoke('meeting:create', options),
   startMeeting: options => ipcRenderer.invoke('meeting:start', options),
   pauseMeeting: () => ipcRenderer.invoke('meeting:pause'),

@@ -17,17 +17,32 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
   let disposed = false;
   let captureWindow;
   let captureReady = false;
+  let processAudio = null;
+  let processAudioId = null;
   const send = (channel, payload) => {
     if (!mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
   };
-  const capture = { command: (type, payload = {}) => new Promise((resolve, reject) => {
+  const capture = { command: async (type, payload = {}) => {
+    if(type==='start' && payload.system!==false && payload.audioApp && payload.audioApp!=='all') {
+      processAudio=await require('./process-audio').startProcessAudio(payload.audioApp,pcm=>{
+        if(!captureWindow.isDestroyed())captureWindow.webContents.send('meeting-capture:app-audio',{id:payload.id,pcm:new Uint8Array(pcm)});
+      },message=>manager.captureFault({id:payload.id,message}).catch(()=>{}));
+      processAudioId=payload.id;
+      payload={...payload,nativeSystem:true};
+    }
+    if(type==='pause'&&processAudioId===payload.id)processAudio?.pause();
+    if(type==='resume'&&processAudioId===payload.id)processAudio?.resume();
+    if(type==='abort'&&processAudioId===payload.id){processAudio?.stop();processAudio=null;processAudioId=null;}
+    try{return await new Promise((resolve, reject) => {
     if (!captureReady || !captureWindow || captureWindow.isDestroyed()) return reject(new Error('De audiorecorder is niet beschikbaar. Probeer opnieuw zodra de recorder hersteld is.'));
     const requestId = crypto.randomUUID();
     const timer = setTimeout(() => { pending.delete(requestId); reject(new Error('De audiorecorder reageert niet; opgeslagen audio blijft bewaard.')); }, 20000);
     pending.set(requestId, { resolve, reject, timer });
     captureWindow.webContents.send('meeting-capture:command', { ...payload, type, requestId });
-  }) };
+    });}finally{if((type==='stop'||type==='abort')&&processAudioId===payload.id){processAudio?.stop();processAudio=null;processAudioId=null;}}
+  } };
   const manager = new MeetingManager({ storage: meetings, getApiKey: () => storage.apiKey(), getSettings: () => storage.settings, capture });
+  const panel = require('./meeting-window').createMeetingPanel({ manager, meetings, hardenWebContents });
   const calendar = new CalendarService({ root: storage.root, safeStorage, getSettings: () => storage.settings, openExternal: url => shell.openExternal(url), onState: value => send('calendar:state', value) });
   const connectors = new ConnectorService({ root: storage.root, safeStorage });
   const active = () => Boolean(manager.active);
@@ -72,8 +87,14 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
   });
   handle('meeting:start', async (options = {}) => {
     if (sessions.current || ['processing','inserting'].includes(sessions.state)) throw new Error('Rond eerst je dictatie af.');
-    return manager.start({ title: options.title, eventId: options.eventId, mic: options.microphone ?? options.mic ?? storage.settings.meetingMicrophone, system: options.systemAudio ?? options.system ?? storage.settings.meetingSystemAudio, microphoneId: storage.settings.microphoneId });
+    const audioApp=options.audioApp||storage.settings.meetingAudioApp||'chrome';
+    if(!['all','chrome','teams','zoom'].includes(audioApp))throw Error('Kies een geldige meeting-app.');
+    const result=await manager.start({ title: options.title, eventId: options.eventId, mic: options.microphone ?? options.mic ?? storage.settings.meetingMicrophone, system: options.systemAudio ?? options.system ?? storage.settings.meetingSystemAudio, microphoneId: storage.settings.microphoneId,audioApp });
+    if(options.audioApp)storage.updateSettings({meetingAudioApp:audioApp});
+    await panel.open(result.id).catch(() => send('diagnostic', 'Opname gestart. Het compacte venster kon niet openen; gebruik de knoppen in Notetaker.'));
+    return result;
   });
+  handle('meeting:panel', id => panel.open(id));
   handle('meeting:pause', () => manager.pause(), true);
   handle('meeting:resume', () => manager.resume(), true);
   handle('meeting:stop', () => manager.stop(), true);
@@ -164,7 +185,7 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
   const suspend = () => { if (active()) manager.pause().catch(() => {}); };
   powerMonitor.on('suspend', suspend);
   return {
-    manager, meetings, calendar, connectors, active, captureWindow,
+    manager, meetings, calendar, connectors, active, captureWindow, panel,
     isCapture: contents => contents === captureWindow?.webContents,
     async dispose() {
       if (disposed) return; disposed = true;
@@ -175,10 +196,12 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
           catch { await manager.captureFault({ id: manager.active?.id, message: 'TakkieAI is afgesloten; opgeslagen audio is bewaard.' }); }
         }
       } finally {
+        await panel.dispose();
         calendar.cancelConnect?.();
         for (const id of manager.transcriber.jobs.keys()) manager.transcriber.cancel(id);
         for (const request of pending.values()) { clearTimeout(request.timer); request.reject(new Error('TakkieAI wordt afgesloten.')); }
         pending.clear(); captureReady = false; captureWindow?.destroy();
+        processAudio?.stop();processAudio=null;
       }
     }
   };
