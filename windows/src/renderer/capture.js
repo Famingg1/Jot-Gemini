@@ -12,7 +12,7 @@ async function start(command) {
   if (enabled[1] && !command.nativeSystem) { try { streams[1] = await captureSources.systemAudio(options=>navigator.mediaDevices.getDisplayMedia(options)); a.streams.push(streams[1]); if (!streams[1].getAudioTracks().length) throw new Error('Geen systeemgeluid ontvangen.'); } catch(error) { throw captureSources.sourceError('system',error); } }
   a.context = new AudioContext({ sampleRate: 16000 });
   await a.context.audioWorklet.addModule('audio-worklet.js');
-  a.node = new AudioWorkletNode(a.context, 'meeting-pcm', { numberOfInputs: 2, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { sources: enabled,nativeSystem:command.nativeSystem } });
+  a.node = new AudioWorkletNode(a.context, 'meeting-pcm', { numberOfInputs: 2, numberOfOutputs: 1, outputChannelCount: [1], processorOptions: { sources: enabled,nativeSystem:command.nativeSystem,nativeLatency:command.nativeLatency } });
   a.node.onprocessorerror = () => fail(new Error('Audioverwerking onderbroken.'), a);
   a.node.port.onmessage = event => {
     if (active !== a) return; const payload = event.data;

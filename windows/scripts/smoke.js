@@ -26,13 +26,13 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     try{
       storage.updateSettings({meetingAutoTranscribe:false});await sleep(600);
       await navigate('notetaker');await click('button','Nieuwe opname');
-      assert.deepEqual(await js(`[...document.querySelector('#meeting-audio-app').options].map(o=>o.value)`),['chrome','teams','zoom','all']);
-      await js(`document.querySelector('#meeting-title').value='Projectoverleg · TakkieAI';document.querySelector('#meeting-audio-app').value='chrome';document.querySelector('#new-meeting-form').requestSubmit()`);
+      assert.deepEqual(await js(`[...document.querySelector('#meeting-audio-app').options].map(o=>o.value)`),['desktop-filtered','chrome','teams','zoom']);
+      await js(`document.querySelector('#meeting-title').value='Projectoverleg · TakkieAI';document.querySelector('#meeting-audio-app').value='desktop-filtered';document.querySelector('#new-meeting-form').requestSubmit()`);
       for(let n=0;n<60&&!services.panel.window;n++)await sleep(250);
       assert.ok(services.panel.window,'Separate meeting window opens');const panel=services.panel.window;
       panel.webContents.on('console-message',(_e,d)=>{if(d.level==='error')panelErrors.push(d.message);});
       const pj=code=>panel.webContents.executeJavaScript(code,true);
-      await sleep(1600);assert.ok(services.active());assert.equal(services.manager.state.audioApp,'chrome');
+      await sleep(1600);assert.ok(services.active());assert.equal(services.manager.state.audioApp,'desktop-filtered');
       await pj(`document.querySelector('#notes').value='Bespreken: planning en volgende stappen.';document.querySelector('#notes').dispatchEvent(new Event('input'));window.flushMeetingNotes()`);
       assert.equal(services.meetings.get(services.manager.active.id).notes,'Bespreken: planning en volgende stappen.');
       await shot('meeting-panel-notes',panel);await pj(`document.querySelector('#tab-transcript').click()`);await shot('meeting-panel-transcript',panel);
@@ -49,7 +49,7 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
       services.meetings.saveDocument(id,'transcript',{segments:[{startMs:0,speakerId:'you',text:'Laten we de planning bespreken.'}]});services.manager.emit('changed');await sleep(300);await shot('meeting-panel-results',panel);
       services.meetings.saveMeta(id,{error:{message:'Test: verbinding onderbroken.'}});services.manager.emit('changed');await sleep(300);await shot('meeting-panel-error',panel);
       assert.ok(await pj(`!document.querySelector('#error').hidden`));assert.equal(panelErrors.length,0);
-      results.flows.panel={durationMs:saved.durationMs,app:'chrome',pauseResume:true,notesSaved:true,closeKeepsRecording:true,narrowWidth:375,consoleErrors:panelErrors,uploaded:false};results.ok=true;
+      results.flows.panel={durationMs:saved.durationMs,app:'desktop-filtered',pauseResume:true,notesSaved:true,closeKeepsRecording:true,narrowWidth:375,consoleErrors:panelErrors,uploaded:false};results.ok=true;
     }catch(error){results.ok=false;results.errors.push(error.stack||String(error));process.exitCode=1;}
     finally{fs.writeFileSync(path.join(root,'panel.json'),JSON.stringify(results,null,2));}
     return;

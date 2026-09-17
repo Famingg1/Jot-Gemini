@@ -28,10 +28,11 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
         if(!captureWindow.isDestroyed())captureWindow.webContents.send('meeting-capture:app-audio',{id:payload.id,pcm:new Uint8Array(pcm)});
       },message=>manager.captureFault({id:payload.id,message}).catch(()=>{}));
       processAudioId=payload.id;
-      payload={...payload,nativeSystem:true};
+      payload={...payload,nativeSystem:true,nativeLatency:payload.audioApp==='desktop-filtered'?3200:0};
     }
-    if(type==='pause'&&processAudioId===payload.id)processAudio?.pause();
-    if(type==='resume'&&processAudioId===payload.id)processAudio?.resume();
+    if(type==='pause'&&processAudioId===payload.id)await processAudio?.pause();
+    if(type==='resume'&&processAudioId===payload.id)await processAudio?.resume();
+    if(type==='stop'&&processAudioId===payload.id)await processAudio?.finish();
     if(type==='abort'&&processAudioId===payload.id){processAudio?.stop();processAudio=null;processAudioId=null;}
     try{return await new Promise((resolve, reject) => {
     if (!captureReady || !captureWindow || captureWindow.isDestroyed()) return reject(new Error('De audiorecorder is niet beschikbaar. Probeer opnieuw zodra de recorder hersteld is.'));
@@ -87,8 +88,7 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
   });
   handle('meeting:start', async (options = {}) => {
     if (sessions.current || ['processing','inserting'].includes(sessions.state)) throw new Error('Rond eerst je dictatie af.');
-    const audioApp=options.audioApp||storage.settings.meetingAudioApp||'chrome';
-    if(!['all','chrome','teams','zoom'].includes(audioApp))throw Error('Kies een geldige meeting-app.');
+    const audioApp=require('./settings').resolveMeetingAudioApp(options.audioApp,storage.settings.meetingAudioApp,Boolean(process.env.JOT_SMOKE&&process.env.JOT_TEST_PROFILE));
     const result=await manager.start({ title: options.title, eventId: options.eventId, mic: options.microphone ?? options.mic ?? storage.settings.meetingMicrophone, system: options.systemAudio ?? options.system ?? storage.settings.meetingSystemAudio, microphoneId: storage.settings.microphoneId,audioApp });
     if(options.audioApp)storage.updateSettings({meetingAudioApp:audioApp});
     await panel.open(result.id).catch(() => send('diagnostic', 'Opname gestart. Het compacte venster kon niet openen; gebruik de knoppen in Notetaker.'));

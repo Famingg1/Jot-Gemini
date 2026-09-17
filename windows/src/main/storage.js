@@ -27,7 +27,8 @@ const defaults = Object.freeze({
   meetingModel: 'gemini-3.5-transcribe',
   meetingMicrophone: true,
   meetingSystemAudio: true,
-  meetingAudioApp: 'chrome',
+  meetingAudioApp: 'desktop-filtered',
+  meetingAudioFilterVersion: 1,
   meetingAutoTranscribe: true,
   meetingAudioRetentionDays: 30,
   largeHud: false,
@@ -62,6 +63,7 @@ class JotStorage {
   readSettings() {
     try {
       const parsed = JSON.parse(fs.readFileSync(this.settingsFile, 'utf8'));
+      if (parsed.meetingAudioFilterVersion !== 1) { parsed.meetingAudioApp = 'desktop-filtered'; parsed.meetingAudioFilterVersion = 1; }
       return { ...defaults, ...parsed };
     } catch {
       return { ...defaults };

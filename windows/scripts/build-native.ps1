@@ -28,5 +28,6 @@ if (-not (Test-Path -LiteralPath $output)) {
 Write-Host "Built $output"
 $audioSource = Resolve-Path (Join-Path $PSScriptRoot "..\native\ProcessAudio.cs")
 $audioOutput = Join-Path $outputDirectory 'TakkieProcessAudio.exe'
-& $compiler /nologo /target:exe /platform:x64 /optimize+ "/out:$audioOutput" $audioSource
+$mixerSource = Resolve-Path (Join-Path $PSScriptRoot "..\native\AudioMixer.cs")
+& $compiler /nologo /target:exe /platform:x64 /optimize+ "/out:$audioOutput" $audioSource $mixerSource
 if ($LASTEXITCODE -ne 0) { throw 'Process audio helper compilation failed.' }

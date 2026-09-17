@@ -11,7 +11,7 @@ function sanitizeSettingsPatch(patch = {}) {
   }
   for (const [key, choices] of Object.entries({
     hotkey: ['right-control', 'caps-lock', 'f8'], theme: ['system', 'light', 'dark'],
-    meetingAudioApp: ['chrome','teams','zoom','all'],
+    meetingAudioApp: ['desktop-filtered','chrome','teams','zoom'],
     language: ['auto', 'nl-NL', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'es-ES'],
     writingStyle: ['natural', 'concise', 'formal', 'code'], appLanguage: ['nl', 'en'],
     hudPosition: ['left', 'center', 'right']
@@ -34,4 +34,9 @@ function sanitizeSettingsPatch(patch = {}) {
   return clean;
 }
 
-module.exports = { sanitizeSettingsPatch };
+function resolveMeetingAudioApp(requested, saved, diagnostic = false) {
+  const choices = diagnostic ? ['desktop-filtered','chrome','teams','zoom','all'] : ['desktop-filtered','chrome','teams','zoom'];
+  if (requested !== undefined && !choices.includes(requested)) throw Error('Kies alle apps zonder muziekapps, of een specifieke meeting-app.');
+  return requested || (choices.includes(saved) ? saved : 'desktop-filtered');
+}
+module.exports = { sanitizeSettingsPatch, resolveMeetingAudioApp };

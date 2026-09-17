@@ -15,7 +15,7 @@ class MeetingStorage {
   create(options = {}) {
     const id = crypto.randomUUID(); const dir = this.directory(id);
     for (const source of SOURCES) fs.mkdirSync(path.join(dir, 'audio', source), { recursive: true });
-    const meta = { version: 1, id, title: String(options.title || 'Nieuwe meeting').slice(0, 300), eventId: typeof options.eventId === 'string' ? options.eventId.slice(0, 1024) : null, startedAt: new Date().toISOString(), endedAt: null, durationMs: 0, state: 'preparing', mic: options.mic !== false, system: options.system !== false, audioApp: ['chrome','teams','zoom','all'].includes(options.audioApp) ? options.audioApp : 'all', shared: false, speakers: {}, error: null };
+    const meta = { version: 1, id, title: String(options.title || 'Nieuwe meeting').slice(0, 300), eventId: typeof options.eventId === 'string' ? options.eventId.slice(0, 1024) : null, startedAt: new Date().toISOString(), endedAt: null, durationMs: 0, state: 'preparing', mic: options.mic !== false, system: options.system !== false, audioApp: ['desktop-filtered','chrome','teams','zoom','all'].includes(options.audioApp) ? options.audioApp : 'all', shared: false, speakers: {}, error: null };
     atomicWriteJson(path.join(dir, 'meta.json'), meta);
     atomicWriteJson(path.join(dir, 'manifest.json'), { version: 1, sampleRate: RATE, sources: {}, batches: {} });
     return meta;

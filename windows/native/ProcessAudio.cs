@@ -27,17 +27,24 @@ class ProcessAudio {
 static volatile bool quit=false;
 static volatile bool paused=false;
 static void Check(int hr){Marshal.ThrowExceptionForHR(hr);}
-[MTAThread]static void Main(string[] args){try{if(args[0]=="--list"){ListApps();return;}Run(uint.Parse(args[0]));}catch(Exception e){Console.Error.WriteLine(e.Message);Environment.ExitCode=1;}}
+[MTAThread]static void Main(string[] args){try{if(args[0]=="--list"){ListApps();return;}if(args[0]=="--desktop-filtered"){DesktopMixer.Run();return;}Run(uint.Parse(args[0]));}catch(Exception e){Console.Error.WriteLine(e.Message);Environment.ExitCode=1;}}
 static void ListApps(){var rows=new List<string>();foreach(var p in Process.GetProcesses()){try{string n=p.ProcessName.ToLowerInvariant();string kind=n=="chrome"?"chrome":(n=="ms-teams"||n=="teams")?"teams":n=="zoom"?"zoom":null;if(kind!=null&&p.MainWindowHandle!=IntPtr.Zero)rows.Add("{\"pid\":"+p.Id+",\"app\":\""+kind+"\"}");}catch{}finally{p.Dispose();}}Console.WriteLine("["+String.Join(",",rows.ToArray())+"]");}
 static void Run(uint pid){
-IntPtr data=Marshal.AllocHGlobal(12);Marshal.WriteInt32(data,0,1);Marshal.WriteInt32(data,4,(int)pid);Marshal.WriteInt32(data,8,0);
-var parameters=new Variant{type=65,size=12,data=data};var completion=new Activation();Operation operation;Guid iid=typeof(Client).GUID;
-Check(ActivateAudioInterfaceAsync("VAD\\Process_Loopback",ref iid,ref parameters,completion,out operation));if(!completion.ready.WaitOne(10000))throw new Exception("Activation timed out");Check(completion.hr);Marshal.FreeHGlobal(data);
-Client client=completion.client;var format=new Format{tag=1,channels=1,rate=16000,bytes=32000,align=2,bits=16,extra=0};
-Check(client.Initialize(0,0x80060000,0,0,ref format,IntPtr.Zero));object service;Guid captureId=typeof(Capture).GUID;Check(client.GetService(ref captureId,out service));Capture capture=(Capture)service;
-using(var samples=new AutoResetEvent(false)){Check(client.SetEventHandle(samples.SafeWaitHandle.DangerousGetHandle()));Check(client.Start());Console.WriteLine("{\"type\":\"ready\"}");
-var commands=new Thread(()=>{string line;while((line=Console.ReadLine())!=null){if(line=="PAUSE")paused=true;else if(line=="RESUME")paused=false;else if(line=="STOP")break;}quit=true;});commands.IsBackground=true;commands.Start();
-while(!quit){samples.WaitOne(250);uint frames;Check(capture.GetNextPacketSize(out frames));while(frames>0){IntPtr pointer;uint flags;ulong pos,qpc;Check(capture.GetBuffer(out pointer,out frames,out flags,out pos,out qpc));var pcm=new byte[frames*2];if((flags&2)==0)Marshal.Copy(pointer,pcm,0,pcm.Length);Check(capture.ReleaseBuffer(frames));if(!paused)Console.WriteLine("{\"type\":\"pcm\",\"data\":\""+Convert.ToBase64String(pcm)+"\"}");Check(capture.GetNextPacketSize(out frames));}}
-Check(client.Stop());}Marshal.ReleaseComObject(capture);Marshal.ReleaseComObject(client);GC.KeepAlive(completion);GC.KeepAlive(operation);
+var commands=new Thread(()=>{string line;while((line=Console.ReadLine())!=null){if(line=="PAUSE"){paused=true;Console.WriteLine("{\"type\":\"paused\"}");}else if(line=="RESUME"){paused=false;Console.WriteLine("{\"type\":\"resumed\"}");}else if(line=="STOP")break;}quit=true;});commands.IsBackground=true;commands.Start();
+CaptureProcess(pid,(pcm,qpc)=>{if(!paused)Console.WriteLine("{\"type\":\"pcm\",\"data\":\""+Convert.ToBase64String(pcm)+"\"}");},()=>quit,()=>Console.WriteLine("{\"type\":\"ready\"}"));Console.WriteLine("{\"type\":\"stopped\"}");
+}
+internal static void CaptureProcess(uint pid,Action<byte[],ulong> onAudio,Func<bool> stop,Action ready){
+IntPtr data=Marshal.AllocHGlobal(12);Client client=null;Capture capture=null;Operation operation=null;var completion=new Activation();bool started=false;
+try{Marshal.WriteInt32(data,0,1);Marshal.WriteInt32(data,4,(int)pid);Marshal.WriteInt32(data,8,0);
+var parameters=new Variant{type=65,size=12,data=data};Guid iid=typeof(Client).GUID;
+Check(ActivateAudioInterfaceAsync("VAD\\Process_Loopback",ref iid,ref parameters,completion,out operation));if(!completion.ready.WaitOne(10000))throw new Exception("Activation timed out");Check(completion.hr);
+client=completion.client;var format=new Format{tag=1,channels=1,rate=16000,bytes=32000,align=2,bits=16,extra=0};
+Check(client.Initialize(0,0x80060000,0,0,ref format,IntPtr.Zero));object service;Guid captureId=typeof(Capture).GUID;Check(client.GetService(ref captureId,out service));capture=(Capture)service;
+using(var samples=new AutoResetEvent(false)){Check(client.SetEventHandle(samples.SafeWaitHandle.DangerousGetHandle()));Check(client.Start());started=true;ready();
+while(!stop()){samples.WaitOne(100);uint frames;Check(capture.GetNextPacketSize(out frames));while(frames>0){IntPtr pointer;uint flags;ulong pos,qpc;Check(capture.GetBuffer(out pointer,out frames,out flags,out pos,out qpc));var pcm=new byte[frames*2];try{if((flags&2)==0)Marshal.Copy(pointer,pcm,0,pcm.Length);}finally{Check(capture.ReleaseBuffer(frames));}
+if((flags&4)!=0)qpc=(ulong)(Stopwatch.GetTimestamp()*(10000000.0/Stopwatch.Frequency)-frames*10000000.0/16000);
+onAudio(pcm,qpc);Check(capture.GetNextPacketSize(out frames));}}
+}}
+finally{if(started&&client!=null)client.Stop();if(capture!=null)Marshal.ReleaseComObject(capture);if(client!=null)Marshal.ReleaseComObject(client);if(operation!=null)Marshal.ReleaseComObject(operation);Marshal.FreeHGlobal(data);GC.KeepAlive(completion);}
 }
 }
