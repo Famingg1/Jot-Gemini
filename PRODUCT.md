@@ -6,11 +6,11 @@ product
 
 ## Users
 
-Jot is for people who write throughout the workday and want to dictate naturally without leaving the app they are using. They may be in email, chat, documents, project tools, or code editors and need a fast, dependable push-to-talk workflow that works across Windows and macOS.
+TakkieAI is for people who write throughout the workday and want to dictate naturally without leaving the app they are using. They may be in email, chat, documents, project tools, or code editors and need a fast, dependable push-to-talk workflow that works across Windows and macOS.
 
 ## Product Purpose
 
-Jot turns speech into polished text at the current cursor using the user's own Gemini API key. Success means recording begins immediately, self-corrections and formatting are handled well, text lands in the intended app, and no spoken work is lost when the network or insertion path fails.
+TakkieAI turns speech into polished text at the current cursor and captures Windows meetings using the user's own Gemini API key. Notetaker records microphone and system audio, keeps recoverable local files, and produces searchable transcripts, summaries and action items. Google Calendar supplies upcoming meetings; a local MCP server exposes only explicitly shared notes.
 
 ## Brand Personality
 
@@ -18,7 +18,7 @@ Calm, capable, and human. The interface should feel quietly responsive and trust
 
 ## Anti-references
 
-Avoid a chat application, a transcription dashboard that must stay open, decorative AI gradients, dense enterprise settings, and unfamiliar custom controls. Do not imitate Wispr Flow's branding or proprietary visuals; match the speed and workflow quality with Jot's own identity.
+For the Windows redesign, Fahim's September 2026 screenshots establish the Wispr Flow-like layout: a warm white sidebar, inset white workspace, grouped settings and a tiny black recording capsule. Keep TakkieAI's name, show real local information, and omit subscriptions and team administration. Avoid decorative gradients, invented usage statistics and controls that imply unsupported integrations.
 
 ## Design Principles
 

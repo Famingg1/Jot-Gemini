@@ -1,8 +1,19 @@
-# Jot Design System
+# TakkieAI Design System
 
 ## Overview
 
-Jot is a restrained desktop productivity tool. On Windows it uses a light, cool-neutral work surface by default, follows the system theme, and uses a compact floating HUD for state feedback. Familiar controls and high information clarity take priority over visual novelty.
+TakkieAI is a restrained desktop productivity tool. The Windows Notetaker redesign follows Fahim's six Flow reference screenshots. Light is the default; explicit dark and system themes remain available. A small black floating HUD communicates capture without taking focus. The Windows-specific tokens in `windows/src/renderer/flow.css` override the earlier Google direction below.
+
+## Windows Notetaker direction (September 2026)
+
+- Warm neutral exterior around an inset white work surface; 208px sidebar, approximately 40px content padding, quiet black primary actions and teal activity graphics.
+- 15px base text, 24px screen headings, serif only in editorial headings and settings titles. Consistent line icons with no decorative icon tiles.
+- Notetaker is the entry screen: upcoming Google Calendar meetings above a dated list of local notes. Detail has Summary, Transcript and Own notes; capture and AI states remain separate.
+- Settings use a native dialog with its own navigation rail and focus handling. Empty, loading, disconnected and failed states offer real recovery actions.
+- Active compact HUD is approximately 104×30px, white waveform on black, pause/cancel and finish. Hover reveals more information. An optional larger variant improves accessibility.
+- Narrow windows reflow the navigation and actions, preserving keyboard access and scrollable content. No fake paid plans, usage limits or population percentiles.
+
+The remainder documents the earlier shared/macOS design and remains applicable where Windows does not override it.
 
 ## Color
 
@@ -26,7 +37,7 @@ The HUD has explicit idle, listening, locked, processing, success, clipboard fal
 
 ## Iconography and Sound
 
-Use simple line icons with consistent stroke weight. The Jot mark is a pill containing waveform bars; do not use the Gemini spark. Earcons are short, quiet, optional, and aligned with recording start, stop, lock, success, cancel, and error transitions.
+Use simple line icons with consistent stroke weight. The TakkieAI mark is a pill containing waveform bars; do not use the Gemini spark. Earcons are short, quiet, optional, and aligned with recording start, stop, lock, success, cancel, and error transitions.
 
 ## Content
 
