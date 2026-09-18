@@ -13,6 +13,8 @@ const { transformText } = require('./text-tools');
 
 async function createDesktopServices({ storage, mainWindow, hudWindow, sessions, hardenWebContents, updateTray }) {
   const meetings = new MeetingStorage(storage.root);
+  meetings.usage=storage.usage;
+  for(const meta of meetings.list())storage.usage.recording('meeting',meta);
   const pending = new Map();
   let disposed = false;
   let captureWindow;
@@ -47,17 +49,9 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
   const calendar = new CalendarService({ root: storage.root, safeStorage, getSettings: () => storage.settings, openExternal: url => shell.openExternal(url), onState: value => send('calendar:state', value) });
   const connectors = new ConnectorService({ root: storage.root, safeStorage });
   const active = () => Boolean(manager.active);
-  let live = null;
   const changed = () => send('meetings:changed');
-  manager.on('audio',payload=>{try{live?.push(payload);}catch{/* live failure never stops local capture */}});
   manager.on('changed', changed);
   manager.on('state', value => {
-    if(value.state==='preparing'&&(!process.env.JOT_SMOKE||process.env.JOT_LIVE_TEST)){
-      live?.closeNow();const id=value.id;let savedCount=-1,savedStatus='';
-      live=new (require('./meeting-live').MeetingLive)({id,apiKey:storage.apiKey(),language:storage.settings.language,vocabulary:meetings.meta(id).participants?.map(p=>p.name).filter(Boolean)||[],save:document=>{meetings.liveViews.set(id,document);if(savedCount!==document.segments.length||savedStatus!==document.status){meetings.saveDocument(id,'live-transcript',{...document,interim:''});savedCount=document.segments.length;savedStatus=document.status;}},onChange:()=>manager.emit('changed')});live.start();
-    }
-    if(value.state==='idle'&&live){const closingLive=live;live=null;closingLive.finish().catch(()=>closingLive.closeNow()).finally(()=>{meetings.liveViews.delete(closingLive.id);manager.emit('changed');});}
-    if(value.state==='paused')live?.flush().catch(()=>{});
     send('meeting:state', value);
     hudWindow.webContents.send('meeting:state', value);
     hudWindow.webContents.send('hud:state', value.state === 'idle' ? { state: 'idle' } : { ...value, mode: 'meeting' });
@@ -211,7 +205,7 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
           catch { await manager.captureFault({ id: manager.active?.id, message: 'TakkieAI is afgesloten; opgeslagen audio is bewaard.' }); }
         }
       } finally {
-        live?.closeNow();live=null;await panel.dispose();
+        await panel.dispose();
         calendar.cancelConnect?.();
         for (const id of manager.transcriber.jobs.keys()) manager.transcriber.cancel(id);
         for (const request of pending.values()) { clearTimeout(request.timer); request.reject(new Error('TakkieAI wordt afgesloten.')); }

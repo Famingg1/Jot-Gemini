@@ -60,6 +60,8 @@ class JotStorage {
     this.safeStorage = safeStorage;
     fs.mkdirSync(this.recordingsRoot, { recursive: true });
     this.settings = this.readSettings();
+    this.usage = new (require('./usage').Usage)(root);
+    for(const meta of this.listHistory())this.usage.recording('dictation',meta);
   }
 
   readSettings() {
@@ -108,6 +110,7 @@ class JotStorage {
 
   writeMeta(directory, meta) {
     atomicWriteJson(path.join(directory, 'meta.json'), meta);
+    this.usage?.recording('dictation',meta);
   }
 
   listHistory(query = '') {

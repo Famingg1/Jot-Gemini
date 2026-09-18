@@ -22,7 +22,7 @@ class MeetingStorage {
   }
   createNote(options = {}) { const meta = this.create(options); return this.saveMeta(meta.id, { state: 'ready', endedAt: meta.startedAt, mic: false, system: false }); }
   meta(id) { const meta = readJson(path.join(this.directory(id), 'meta.json')); if (!meta) throw new Error('Meeting niet gevonden.'); return meta; }
-  saveMeta(id, patch) { const meta = { ...this.meta(id), ...patch, id }; atomicWriteJson(path.join(this.directory(id), 'meta.json'), meta); return meta; }
+  saveMeta(id, patch) { const meta = { ...this.meta(id), ...patch, id }; atomicWriteJson(path.join(this.directory(id), 'meta.json'), meta); this.usage?.recording('meeting',meta); return meta; }
   manifest(id) { return readJson(path.join(this.directory(id), 'manifest.json'), { version: 1, sampleRate: RATE, sources: {}, batches: {} }); }
   saveManifest(id, manifest) { atomicWriteJson(path.join(this.directory(id), 'manifest.json'), manifest); }
   get(id) { const dir = this.directory(id); return { ...this.meta(id), manifest: this.manifest(id), transcript: readJson(path.join(dir, 'transcript.json'), { segments: [] }), summary: readJson(path.join(dir, 'summary.json'), null), liveTranscript: this.liveViews.get(id)||readJson(path.join(dir,'live-transcript.json'),null), notes: fs.existsSync(path.join(dir, 'notes.md')) ? fs.readFileSync(path.join(dir, 'notes.md'), 'utf8') : '' }; }

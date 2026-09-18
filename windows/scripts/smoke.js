@@ -21,6 +21,32 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     const child=require('node:child_process').spawn('powershell.exe',['-NoProfile','-Command','$p=New-Object System.Media.SoundPlayer $env:JOT_TEST_TONE; $p.PlaySync();'],{windowsHide:true,env:{...process.env,JOT_TEST_TONE:file},stdio:'ignore'});
     return new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error('Test tone failed')));});
   };
+  if(process.env.JOT_USAGE_TEST){
+    try{
+      await sleep(700);await click('#monthly-usage-button');await shot('usage-empty');
+      assert.ok(await js(`document.getElementById('usage-content').textContent.includes('Nog geen afgeronde')`));
+      await js(`document.getElementById('monthly-usage-panel').hidePopover()`);
+      let audioCalls=0,summaryCalls=0;
+      services.manager.transcriber.clientFactory=async()=>({interactions:{create:async()=>{audioCalls++;return {steps:[{type:'model_output',content:[{annotations:[{type:'word_info',text:'Testvergadering.',speaker:'spk_1',start_offset:'0s',end_offset:'1s'}]}]}]};}},models:{generateContent:async()=>{summaryCalls++;return {text:JSON.stringify({title:'Testvergadering',summary:'Test afgerond.',decisions:[],actions:[]})};}}});
+      services.manager.transcriber.getApiKey=()=> 'synthetic-test-key';storage.updateSettings({meetingAutoTranscribe:true});
+      const m=await js(`window.jot.startMeeting({microphone:true,systemAudio:false})`);await sleep(1400);
+      assert.equal(audioCalls,0);assert.equal(summaryCalls,0);assert.equal(services.manager.listenerCount('audio'),0);
+      const pw=services.panel.window;await pw.webContents.executeJavaScript(`document.getElementById('tab-transcript').click()`);await shot('recording-no-live',pw);
+      assert.ok((await pw.webContents.executeJavaScript(`document.getElementById('transcript-empty').textContent`)).includes('Na stoppen'));
+      await js(`window.jot.stopMeeting()`);for(let n=0;n<50&&services.meetings.meta(m.id).state!=='ready';n++)await sleep(100);
+      assert.equal(services.meetings.meta(m.id).state,'ready');assert.equal(audioCalls,1);assert.equal(summaryCalls,1);
+      await shot('completed-transcript',pw);pw.hide();
+      const now=new Date();storage.usage.recording('dictation',{id:'usage-test',startedAt:now.toISOString(),durationSeconds:480,status:'complete'});
+      storage.usage.recording('meeting',{id:'usage-test-meeting',startedAt:now.toISOString(),durationMs:5400000,state:'ready'});
+      storage.usage.audio('gemini-3.5-transcribe',5400000);mainWindow.show();await click('#monthly-usage-button');await shot('usage-filled');
+      assert.ok(await js(`document.getElementById('monthly-usage-button').textContent.includes('1 u 38 min')`));
+      await js(`document.documentElement.dataset.theme='dark'`);await shot('usage-dark');await js(`document.documentElement.dataset.theme='light'`);
+      mainWindow.setMinimumSize(375,500);mainWindow.setSize(375,750);await shot('usage-narrow');
+      assert.ok(await js(`document.getElementById('monthly-usage-panel').getBoundingClientRect().right<=innerWidth`));
+      storage.usage.error=true;await click('#usage-refresh');await shot('usage-error');assert.ok(await js(`document.getElementById('usage-content').textContent.includes('niet worden geladen')`));storage.usage.error=false;await click('#usage-refresh');
+      assert.equal(captureConsoleErrors.length,0);results.ok=true;results.flows={usage:true,postRecordingOnly:true,audioCalls,summaryCalls,uploaded:false,consoleErrors:0};
+    }catch(error){results.ok=false;results.errors.push(error.stack);process.exitCode=1;}finally{fs.writeFileSync(path.join(root,'usage.json'),JSON.stringify(results,null,2));}return;
+  }
   if(process.env.JOT_LIVE_VERIFY){
     let live;
     try{

@@ -271,6 +271,7 @@ function registerIpc() {
     if ((event.sender !== mainWindow.webContents && !(hud && event.sender === hudWindow.webContents)) || event.senderFrame !== event.sender.mainFrame) throw new Error('Deze actie is niet toegestaan.');
     return callback(event, ...args);
   });
+  handle('usage:month', (_event, month) => storage.usage.snapshot(month));
   handle('app:bootstrap', () => ({
     settings: publicSettings(),
     stats: storage.stats(),

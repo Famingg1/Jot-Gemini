@@ -141,7 +141,8 @@ class SessionManager extends EventEmitter {
       const transcript = await transcribe({
         apiKey: this.storage.apiKey(),
         audioPath: path.join(session.directory, 'audio.wav'),
-        settings: codingSettings(this.storage.settings)
+        settings: codingSettings(this.storage.settings),
+        onRequest: model => this.storage.usage?.audio(model,session.meta.durationSeconds*1000)
       });
       session.meta.rawTranscript = transcript;
       let edited = applyReplacements(transcript, this.storage.settings.replacements);

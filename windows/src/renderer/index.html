@@ -28,7 +28,7 @@
     <main class="content">
       <header class="topbar">
         <div><h1 id="page-title">Geschiedenis</h1><p id="page-subtitle">Alles wat je hebt gedicteerd, lokaal bewaard.</p></div>
-        <div class="topbar-actions"><span id="hotkey-hint" class="key-hint">Rechter Ctrl</span><button id="start-button" class="primary-button"><span class="mic-dot"></span>Start dictatie</button></div>
+        <button id="monthly-usage-button" class="secondary-button" aria-controls="monthly-usage-panel" popovertarget="monthly-usage-panel">Deze maand · laden…</button><div class="topbar-actions"><span id="hotkey-hint" class="key-hint">Rechter Ctrl</span><button id="start-button" class="primary-button"><span class="mic-dot"></span>Start dictatie</button></div>
       </header>
 
       <div id="notice" class="notice" role="status" hidden></div>
@@ -91,6 +91,7 @@
     </main>
   </div>
 
+  <section id="monthly-usage-panel" popover="auto" aria-label="Maandelijks gebruik"><div class="usage-heading"><h2>Jouw gebruik</h2><button popovertarget="monthly-usage-panel" popovertargetaction="hide" aria-label="Gebruik sluiten">×</button></div><label>Maand <select id="usage-month" aria-label="Maand kiezen"></select></label><div id="usage-content" role="status">Gebruik laden…</div><button id="usage-refresh" class="text-button">Verversen</button></section>
   <div id="onboarding" class="onboarding" hidden>
     <div class="onboarding-panel">
       <div class="onboarding-progress" aria-label="Voortgang"><i></i><i></i><i></i><i></i></div>
@@ -105,6 +106,7 @@
   <dialog id="history-dialog" class="record-dialog"><button class="icon-button dialog-close" aria-label="Sluiten">×</button><div id="history-dialog-content"></div></dialog>
   <div id="toast-region" class="toast-region" aria-live="polite"></div>
   <script src="speakers.js"></script><script src="flow.js"></script>
+  <script src="monthly-usage.js"></script>
   <link rel="stylesheet" href="shortcuts.css">
   <script src="hotkeys.js"></script>
   <script src="shortcut-ui.js"></script>

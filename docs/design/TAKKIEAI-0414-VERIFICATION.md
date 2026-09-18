@@ -1,0 +1,13 @@
+# TakkieAI 0.4.14 — transcript na stoppen en maandelijks gebruik
+
+De automatische MeetingLive-verbinding en audio-forwarding zijn uit desktop-services verwijderd. Tijdens opname wordt uitsluitend lokaal audio opgeslagen; na stoppen gebruikt de bestaande MeetingTranscriber één transcriptiepassage (in blokken bij lange meetings) en vervolgens een tekstaanvraag voor de samenvatting. Bestaande sprekerlabels, titelgeneratie, retries en lokale audio blijven behouden. Oude live-bestanden worden niet verwijderd, maar niet meer als actueel transcript getoond. De ongebruikte live-module blijft beschikbaar voor historische tests, niet aangesloten op de app.
+
+Rechtsboven toont een knop afgeronde opname-uren van de huidige lokale kalendermaand. Een native popover toont dictatie, meetings, aantallen en transcriptiekostenraming; de maandkiezer ontsluit eerdere maanden. Het maandoverzicht is alleen voor deze pc. Een lokaal ledger zonder transcriptinhoud bewaart tellingen ook na verwijderen van opnames. Bestaande bewaarde metadata wordt idempotent ingelezen; al eerder verwijderde opnames zijn niet te reconstrueren.
+
+Kosten worden vanaf de eerste start van deze versie geraamd op aangevraagde audio ($0,005/min voor gemini-3.5-transcribe volgens Google op 18-9-2026). Iedere nieuwe aanvraag/retry telt; hervatting van reeds verwerkte batches telt niet opnieuw. Dit is geen Google-factuur. Samenvattingen, stijl, btw, gratis tegoed en historisch live gebruik worden niet berekend. Onbekende modellen worden expliciet als onbekend gemarkeerd. Een beschadigd ledger wordt niet overschreven en geeft een herstelbare UI-foutmelding.
+
+Verificatie: 64 unit/integratietests. Electron-smoke in geïsoleerd profiel neemt synthetische microfoonaudio op en bevestigt nul live audio-listeners en nul transcriptieverzoeken tijdens opname. Pas na stoppen: één gemockte audioaanvraag en één gemockte tekstsamenvatting; opgeslagen transcript verschijnt met sprekerlabel. Geen audio naar Gemini verstuurd in deze test. UI-states leeg, gevuld en fout, licht/donker en 375px zijn bekeken. Console: nul fouten. Screenshots onder windows/screenshots/usage0414-*.
+
+Beveiliging: nieuwe usage:month IPC gebruikt dezelfde afzender- en main-framecontrole als de bestaande app-IPC. Maandargument gevalideerd; renderer rendert gebruiksdata met textContent. Ledger bevat alleen IDs, tijden, aantallen en ramingen, geen sleutels of transcripties. Webserver/poorttest niet van toepassing op Electron.
+
+Niet getest: een nieuwe echte Gemini-aanvraag voor deze versie; bestaande transcriptieaanroep is functioneel ongewijzigd. Kosten zijn nadrukkelijk geen gefactureerde bedragen. Geen synchronisatie van gebruik over meerdere pc's.

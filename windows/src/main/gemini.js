@@ -19,7 +19,7 @@ function normalizeError(error) {
   return { code: 'model', message: 'Gemini kon deze opname niet verwerken. De opname is lokaal bewaard.' };
 }
 
-async function transcribe({ apiKey, audioPath, settings }) {
+async function transcribe({ apiKey, audioPath, settings, onRequest = () => {} }) {
   if (!apiKey) throw Object.assign(new Error('Missing Gemini API key.'), { status: 401 });
   const { GoogleGenAI } = await import('@google/genai');
   const client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 180000 } });
@@ -45,6 +45,7 @@ async function transcribe({ apiKey, audioPath, settings }) {
   };
 
   try {
+    onRequest(settings.model || 'gemini-3.5-transcribe');
     const response = await client.interactions.create({
       model: settings.model || 'gemini-3.5-transcribe',
       input: [audioInput],
