@@ -39,6 +39,17 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     }catch(error){results.ok=false;results.errors.push(error.message);process.exitCode=1;}finally{live?.closeNow();fs.writeFileSync(path.join(root,'live-verification.json'),JSON.stringify(results,null,2));}
     return;
   }
+  if(process.env.JOT_READINESS_TEST){
+    try{
+      await sleep(500);storage.updateSettings({sounds:false});
+      await js(`window.originalGetUserMedia=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getUserMedia=async options=>{await new Promise(resolve=>setTimeout(resolve,700));return window.originalGetUserMedia(options);};void 0`);
+      sessions.begin();const session=sessions.current;assert.equal(sessions.state,'starting');await shot('microphone-preparing',hudWindow);assert.equal(sessions.state,'starting');
+      for(let n=0;n<70&&sessions.state==='starting';n++)await sleep(100);assert.equal(sessions.state,'listening');await shot('speak-now',hudWindow);await sleep(550);
+      sessions.process=async()=>{};await sessions.finish();const audio=fs.readFileSync(path.join(session.directory,'audio.wav'));assert.ok(audio.length>8044);assert.ok(audio.subarray(44).some(x=>x!==0));
+      hudWindow.webContents.send('hud:state',{state:'listening'});hudWindow.webContents.send('hud:level',.4);await shot('wave-center',hudWindow);hudWindow.webContents.send('hud:level',1);await shot('wave-loud',hudWindow);await sleep(1000);await shot('wave-silent',hudWindow);
+      assert.equal(captureConsoleErrors.length,0);results.ok=true;results.flows.readiness={delayedMicrophone:true,readyAfterFrames:true,flushedAudioBytes:audio.length-44,uploaded:false};
+    }catch(error){results.ok=false;results.errors.push(error.stack);process.exitCode=1;}finally{fs.writeFileSync(path.join(root,'readiness.json'),JSON.stringify(results,null,2));}return;
+  }
   if(process.env.JOT_AUTO_SETTINGS_TEST){
     try{await sleep(600);await click('button','Instellingen');await js(`document.querySelector('[data-settings="meeting"]').click()`);await sleep(300);await shot('automatic-meeting-settings');assert.equal(await js(`document.querySelector('#meeting-audio-app').options.length`),8);results.ok=true;}catch(error){results.ok=false;results.errors.push(error.stack);process.exitCode=1;}finally{fs.writeFileSync(path.join(root,'auto-settings.json'),JSON.stringify(results,null,2));}return;
   }

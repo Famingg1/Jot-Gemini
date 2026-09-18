@@ -15,24 +15,27 @@ let largeHud = false;
 let meetingDurationMs = 0;
 let startedAt = 0;
 let timerHandle;
+let readyTimer;
 
 const labels = {
-  recording: 'Meetingopname', paused: 'Gepauzeerd', idle: 'Dicteren', listening: '', locked: 'Handsfree', processing: 'Transcriberen…',
+  starting:'Microfoon voorbereiden…',preparing:'Opname voorbereiden…',finalizing:'Audio opslaan…',recording: 'Meetingopname', paused: 'Gepauzeerd', idle: 'Dicteren', listening: '', locked: 'Handsfree', processing: 'Transcriberen…',
   inserting: 'Invoegen…', success: 'Klaar', clipboard: 'Gekopieerd naar klembord',
   offline: 'Opname bewaard — wacht op verbinding', error: 'Opname bewaard in Geschiedenis', secure: 'Beveiligd veld — dictatie gepauzeerd', cancelled: 'Geannuleerd'
 };
 
 function render(next) {
+  const previousState=state;clearTimeout(readyTimer);
   const previousMeetingId = meeting?.id || meeting?.meetingId;
   state = next.state;
   if (next.mode === 'meeting' || next.meetingId || ['recording','paused'].includes(next.state)) meeting = next; else meeting = null;
   if (meeting && (meeting.id || meeting.meetingId) !== previousMeetingId) meetingDurationMs = Number.isFinite(next.durationMs) ? next.durationMs : 0;
   pill.setAttribute('aria-label', meeting ? 'TakkieAI meetingopname' : 'TakkieAI dictatie');
-  pill.title = meeting ? `${next.state === 'paused' ? 'Opname gepauzeerd' : 'Meeting wordt opgenomen'} \u00b7 Microfoon ${next.mic === false ? 'uit' : 'aan'} \u00b7 Computer ${next.system === false ? 'uit' : 'aan'}` : (labels[next.state] || 'TakkieAI');
+  pill.title = meeting ? `${next.state === 'preparing'?'Opname wordt voorbereid':next.state === 'paused' ? 'Opname gepauzeerd' : 'Meeting wordt opgenomen'} \u00b7 Microfoon ${next.mic === false ? 'uit' : 'aan'} \u00b7 Computer ${next.system === false ? 'uit' : 'aan'}` : (labels[next.state] || 'TakkieAI');
   cancelButton.setAttribute('aria-label', meeting ? (next.state === 'paused' ? 'Opname hervatten' : 'Opname pauzeren') : 'Dictatie annuleren');
   cancelButton.title = cancelButton.getAttribute('aria-label');
   pill.className = `pill ${state}${largeHud ? ' large' : ''}`;
   message.textContent = next.message || labels[state] || 'TakkieAI';
+  if(next.ready||(state==='recording'&&previousState==='preparing')){pill.classList.add('ready');message.textContent='Spreek nu';readyTimer=setTimeout(()=>{pill.classList.remove('ready');message.textContent=labels[state]||'';},1100);}
   leading.textContent = state === 'success' ? '✓' : state === 'clipboard' ? '⧉' : state === 'secure' ? '◆' : ['offline', 'error'].includes(state) ? '!' : '●';
   const active = ['listening','locked','recording','paused'].includes(state);
   timer.hidden = !active;
@@ -81,13 +84,11 @@ cancelButton.addEventListener('click', () => meeting ? (state === 'paused' ? win
 pasteButton.addEventListener('click', () => window.jot.pasteLast());
 
 window.jot.onHudState(render);
-window.jot.onHudLevel((level) => {
-  if (!['listening', 'locked', 'recording'].includes(state)) return;
-  bars.forEach((bar, index) => {
-    const shaped = Math.max(.22, Math.min(1, level * (1.35 - Math.abs(index - (bars.length - 1) / 2) * .12)));
-    bar.style.setProperty('--level', shaped.toFixed(2));
-  });
-});
+let targetLevel=0,shownLevel=0,lastLevelAt=0;
+window.jot.onHudLevel(level=>{targetLevel=Math.max(0,Math.min(1,Number(level)||0));lastLevelAt=performance.now();});
+let lastFrame=performance.now();
+function animateWave(now){const active=['listening','locked','recording'].includes(state);const target=active&&now-lastLevelAt<700?targetLevel:0;const dt=Math.min(100,now-lastFrame);lastFrame=now;shownLevel+=(target-shownLevel)*(1-Math.exp(-dt/(target>shownLevel?35:140)));window.TakkieWave.shape(shownLevel,bars.length).forEach((value,index)=>bars[index].style.setProperty('--level',value.toFixed(3)));requestAnimationFrame(animateWave);}
+requestAnimationFrame(animateWave);
 
 render({ state: 'idle' });
 

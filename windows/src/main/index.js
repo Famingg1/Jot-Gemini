@@ -201,13 +201,13 @@ function updateTray() {
   const meetingActive = services?.active();
   const label = {
     idle: `Klaar — houd ${hotkeyLabel(storage.settings.hotkey)} ingedrukt`,
-    listening: 'Luisteren…', locked: 'Handsfree luisteren…', processing: 'Transcriberen…',
+    starting:'Microfoon voorbereiden…', listening: 'Luisteren…', locked: 'Handsfree luisteren…', processing: 'Transcriberen…',
     inserting: 'Tekst invoegen…', success: 'Ingevoegd', offline: 'Opname wacht op verbinding', error: 'Aandacht nodig'
   }[state] || 'TakkieAI';
   tray.setToolTip(`TakkieAI — ${meetingActive ? 'Meeting wordt opgenomen' : label}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label, enabled: false },
-    { label: state === 'listening' || state === 'locked' ? 'Stop dictatie' : 'Start handsfree dictatie', enabled: !meetingActive, click: () => state === 'listening' || state === 'locked' ? sessions.finish() : sessions.begin({}) },
+    { label: state === 'starting' || state === 'listening' || state === 'locked' ? 'Stop dictatie' : 'Start handsfree dictatie', enabled: !meetingActive, click: () => state === 'listening' || state === 'locked' ? sessions.finish() : sessions.begin({}) },
     { label: meetingActive ? 'Stop meetingopname' : 'Notetaker', click: () => meetingActive ? services.manager.stop().catch(error => broadcastDiagnostic(error.message)) : showMainWindow('notetaker') },
     { label: 'Plak laatste transcript', enabled: Boolean(sessions?.lastTranscript), click: pasteLastTranscript },
     { type: 'separator' },
@@ -345,9 +345,11 @@ function registerIpc() {
   handle('dictation:stop', () => sessions.finish());
   handle('dictation:cancel', () => sessions.cancel(), true);
   handle('dictation:paste-last', () => pasteLastTranscript(), true);
+  ipcMain.on('audio:status',(event,payload)=>{if(event.sender!==mainWindow.webContents||event.senderFrame!==event.sender.mainFrame)return;if(payload?.status==='ready')sessions.captureReady(payload.id);else if(payload?.status==='stopped')sessions.captureStopped(payload.id);else if(payload?.status==='stop-error')sessions.captureStopped(payload.id,false);else if(payload?.status==='error')sessions.captureFailed(payload.id);});
   ipcMain.on('audio:chunk', (event, payload) => {
     if (event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame || services?.active()) return;
     if (!(payload?.data instanceof ArrayBuffer) || payload.data.byteLength > 1024 * 1024 || !Number.isFinite(payload.sampleRate) || payload.sampleRate < 8000 || payload.sampleRate > 192000) return;
+    if(payload.id!==sessions.current?.id)return;
     sessions.appendChunk(payload.data, payload.sampleRate);
   });
   ipcMain.on('audio:level', (event, level) => { if (event.sender === mainWindow.webContents && !services?.active()) hudWindow?.webContents.send('hud:level', Math.max(0, Math.min(1, Number(level) || 0))); });

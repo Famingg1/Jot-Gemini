@@ -61,10 +61,15 @@ class SessionManager extends EventEmitter {
     fs.writeFileSync(path.join(directory, 'audio.pcm'), Buffer.alloc(0));
     this.current = { id, directory, meta, frames: 0, started: Date.now() };
     this.locked = false;
-    this.setState('listening', { targetApp: meta.targetApp });
-    this.emit('recording', { action: 'start', microphoneId: this.storage.settings.microphoneId });
+    this.setState('starting', { targetApp: meta.targetApp });
+    this.current.startTimer=setTimeout(()=>this.captureFailed(id),15000);this.current.startTimer.unref?.();
+    this.emit('recording', { action: 'start', id, microphoneId: this.storage.settings.microphoneId });
     return true;
   }
+
+  captureReady(id){if(this.current?.id!==id||this.current.finishing||this.state!=='starting')return;clearTimeout(this.current.startTimer);this.setState(this.locked?'locked':'listening',{ready:true});}
+  captureStopped(id,ok=true){if(this.current?.id===id)this.current.stopped?.(ok);}
+  captureFailed(id){if(this.current?.id!==id)return;this.cancel().then(()=>{if(!this.current){this.setState('error',{message:'Microfoon kon niet starten. Probeer opnieuw.'});this.returnToIdle();}});}
 
   appendChunk(chunk, sampleRate = 16000) {
     if (!this.current || this.current.meta.status !== 'recording') return;
@@ -80,7 +85,7 @@ class SessionManager extends EventEmitter {
   lock() {
     if (!this.current || this.locked) return;
     this.locked = true;
-    this.setState('locked');
+    if(this.state!=='starting')this.setState('locked');
   }
 
   async finish() {
@@ -88,9 +93,8 @@ class SessionManager extends EventEmitter {
     const session = this.current;
     session.finishing = true;
     this.locked = false;
-    this.emit('recording', { action: 'stop' });
-    // Give the audio renderer one IPC turn to flush its final PCM block.
-    await new Promise((resolve) => setTimeout(resolve, 160));
+    clearTimeout(session.startTimer);
+    const flushed=await new Promise(resolve=>{const timer=setTimeout(()=>resolve(false),10000);session.stopped=ok=>{clearTimeout(timer);resolve(ok);};this.emit('recording',{action:'stop',id:session.id});});
     if (this.current === session) this.current = null;
     const recovery = path.join(session.directory, 'audio.pcm');
     const pcm = fs.existsSync(recovery) ? fs.readFileSync(recovery) : Buffer.alloc(0);
@@ -109,6 +113,7 @@ class SessionManager extends EventEmitter {
     const wavPath = path.join(session.directory, 'audio.wav');
     fs.writeFileSync(wavPath, pcmToWav(pcm, session.meta.sampleRate));
     fs.unlinkSync(recovery);
+    if(!flushed){session.meta.status='failed';session.meta.errorCode='capture';session.meta.errorMessage='Audio bewaard, maar het laatste audioblok kon niet worden bevestigd. Controleer de opname.';this.storage.writeMeta(session.directory,session.meta);this.emit('history-changed');this.setState('error',{message:session.meta.errorMessage});this.returnToIdle(6000);return;}
     this.storage.writeMeta(session.directory, session.meta);
     this.setState('processing');
     await this.process(session);
@@ -119,7 +124,7 @@ class SessionManager extends EventEmitter {
     const session = this.current;
     this.current = null;
     this.locked = false;
-    this.emit('recording', { action: 'stop' });
+    clearTimeout(session.startTimer);this.emit('recording', { action: 'stop',id:session.id });
     const durationSeconds = (Date.now() - session.started) / 1000;
     session.meta.durationSeconds = durationSeconds;
     session.meta.status = 'cancelled';

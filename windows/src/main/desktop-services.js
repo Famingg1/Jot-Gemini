@@ -66,7 +66,8 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
     updateTray();
   });
   manager.on('progress', value => send('meeting:progress', value));
-  manager.on('levels', value => { send('meeting:levels', value); hudWindow.webContents.send('meeting:levels', value); hudWindow.webContents.send('hud:level', Math.max(value.mic || 0, value.system || 0)); });
+  manager.on('visual-level',value=>hudWindow.webContents.send('hud:level',value));
+  manager.on('levels', value => { send('meeting:levels', value); hudWindow.webContents.send('meeting:levels', value); });
   const handle = (name, callback, allowHud = false) => ipcMain.handle(name, (event, ...args) => {
     if ((event.sender !== mainWindow.webContents && !(allowHud && event.sender === hudWindow.webContents)) || event.senderFrame !== event.sender.mainFrame) throw new Error('Deze actie is niet toegestaan.');
     return callback(...args);

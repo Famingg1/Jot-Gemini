@@ -13,69 +13,7 @@ const pageMeta = {
 const state = { settings: null, history: [], stats: {}, versions: {}, section: 'history', dictation: 'idle' };
 const byId = (id) => document.getElementById(id);
 
-class AudioRecorder {
-  constructor() {
-    this.stream = null;
-    this.context = null;
-    this.processor = null;
-    this.source = null;
-    this.mute = null;
-    this.capture = false;
-    this.levelHandler = null;
-  }
-
-  async start({ deviceId = 'default', capture = true, levelHandler = null } = {}) {
-    if (this.stream) await this.stop();
-    const audio = deviceId && deviceId !== 'default'
-      ? { deviceId: { exact: deviceId }, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-      : { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
-    this.context = new AudioContext({ sampleRate: 16000, latencyHint: 'interactive' });
-    await this.context.resume();
-    this.source = this.context.createMediaStreamSource(this.stream);
-    this.processor = this.context.createScriptProcessor(4096, 1, 1);
-    this.mute = this.context.createGain();
-    this.mute.gain.value = 0;
-    this.capture = capture;
-    this.levelHandler = levelHandler;
-    this.processor.onaudioprocess = (event) => {
-      const samples = event.inputBuffer.getChannelData(0);
-      let energy = 0;
-      const pcm = new Int16Array(samples.length);
-      for (let index = 0; index < samples.length; index += 1) {
-        const sample = Math.max(-1, Math.min(1, samples[index]));
-        energy += sample * sample;
-        pcm[index] = sample < 0 ? sample * 32768 : sample * 32767;
-      }
-      const rms = Math.sqrt(energy / samples.length);
-      const level = Math.min(1, Math.max(0, (Math.log10(Math.max(rms, 0.0001)) + 4) / 3.2));
-      this.levelHandler?.(level);
-      window.jot.audioLevel(level);
-      if (this.capture) window.jot.audioChunk(pcm.buffer, this.context.sampleRate);
-    };
-    this.source.connect(this.processor);
-    this.processor.connect(this.mute);
-    this.mute.connect(this.context.destination);
-  }
-
-  async stop() {
-    if (!this.stream) return;
-    this.processor?.disconnect();
-    this.source?.disconnect();
-    this.mute?.disconnect();
-    for (const track of this.stream.getTracks()) track.stop();
-    await this.context?.close().catch(() => {});
-    this.stream = null;
-    this.context = null;
-    this.processor = null;
-    this.source = null;
-    this.mute = null;
-    this.levelHandler?.(0);
-    this.levelHandler = null;
-  }
-}
-
-const recorder = new AudioRecorder();
+const recorder = new window.TakkieAudioRecorder();
 
 function navigate(section) {
   if (window.flowNavigate?.(section)) return;
@@ -253,18 +191,18 @@ function actionButton(label, className, handler) {
 
 function updateDictationState(next) {
   state.dictation = next.state;
-  const labels = { idle: 'Klaar', listening: 'Luisteren…', locked: 'Handsfree luisteren…', processing: 'Transcriberen…', inserting: 'Invoegen…', success: 'Ingevoegd', clipboard: 'Gekopieerd', offline: 'Wacht op netwerk', error: 'Aandacht nodig', secure: 'Beveiligd veld', cancelled: 'Geannuleerd' };
+  const labels = { idle: 'Klaar', starting:'Microfoon voorbereiden…', listening: 'Luisteren…', locked: 'Handsfree luisteren…', processing: 'Transcriberen…', inserting: 'Invoegen…', success: 'Ingevoegd', clipboard: 'Gekopieerd', offline: 'Wacht op netwerk', error: 'Aandacht nodig', secure: 'Beveiligd veld', cancelled: 'Geannuleerd' };
   byId('sidebar-status-text').textContent = labels[next.state] || 'Klaar';
   byId('status-dot').dataset.state = next.state;
   byId('start-button').disabled = ['processing', 'inserting'].includes(next.state);
-  byId('start-button').textContent = ['listening', 'locked'].includes(next.state) ? 'Stop dictatie' : 'Start dictatie';
+  byId('start-button').textContent = ['starting','listening', 'locked'].includes(next.state) ? 'Stop dictatie' : 'Start dictatie';
   if (next.state === 'idle') {
     if (state.settings.showIdleIndicator) window.jot.showHud(); else window.jot.hideHud();
   } else {
     window.jot.showHud();
   }
   if (next.message && ['error', 'offline', 'clipboard', 'secure'].includes(next.state)) toast(next.message);
-  playStateSound(next.state);
+  playStateSound(next.ready?'listening':next.state);
 }
 
 function playStateSound(name) {
@@ -323,14 +261,20 @@ function bindEvents() {
   window.jot.onState(updateDictationState);
   window.jot.onHistoryChanged(() => refreshHistory());
   window.jot.onDiagnostic((message) => showNotice(message, true));
-  window.jot.onAudioCommand(async (command) => {
+  let audioCommands=Promise.resolve();
+  const cancelledStarts=new Set();
+  window.jot.onAudioCommand(command => {
+    if(command.action==='stop'){cancelledStarts.add(command.id);recorder.abortStart();}
+    audioCommands=audioCommands.catch(()=>{}).then(async()=>{
     if (command.action === 'start') {
-      try { await recorder.start({ deviceId: command.microphoneId, capture: true }); }
-      catch (error) { showNotice(`Microfoon kon niet starten: ${error.message}`, true); await window.jot.cancelDictation(); }
-    } else if (command.action === 'stop') await recorder.stop();
+      if(cancelledStarts.has(command.id))return;
+      try { await recorder.start({ deviceId: command.microphoneId, capture: true,sessionId:command.id }); }
+      catch (error) { await recorder.stop().catch(()=>{});showNotice(`Microfoon kon niet starten: ${error.message}`,true);window.jot.audioStatus(command.id,'error'); }
+    } else if (command.action === 'stop') {try{await recorder.stop();window.jot.audioStatus(command.id,'stopped');}catch{window.jot.audioStatus(command.id,'stop-error');}finally{cancelledStarts.delete(command.id);}}
+    });
   });
 
-  byId('start-button').addEventListener('click', () => ['listening', 'locked'].includes(state.dictation) ? window.jot.stopDictation() : window.jot.startDictation());
+  byId('start-button').addEventListener('click', () => ['starting','listening', 'locked'].includes(state.dictation) ? window.jot.stopDictation() : window.jot.startDictation());
   byId('history-search').addEventListener('input', debounce(() => refreshHistory(), 180));
   byId('dictionary-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const input = byId('dictionary-term'); const term = input.value.trim();

@@ -6,6 +6,7 @@ function fail(error, a = active) { if (!a || active !== a || a.failed) return; a
 async function start(command) {
   if (active) throw new Error('Capture is already active.');
   const a = { id: command.id, streams: [], pending: new Set(), flushes: new Map(), failed: false }; active = a;
+  let ready;const firstFrame=new Promise(resolve=>{ready=resolve;});
   const enabled = [command.mic !== false, command.system !== false];
   const streams = [null,null];
   if (enabled[0]) { try { streams[0] = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: command.microphoneId && command.microphoneId !== 'default' ? { exact: command.microphoneId } : undefined, echoCancellation: true, noiseSuppression: true }, video: false }); a.streams.push(streams[0]); } catch(error) { throw captureSources.sourceError('mic',error); } }
@@ -17,6 +18,8 @@ async function start(command) {
   a.node.port.onmessage = event => {
     if (active !== a) return; const payload = event.data;
     if(payload.type==='fault')return fail(new Error(payload.message),a);
+    if(payload.type==='ready'){ready();return;}
+    if(payload.type==='visual-level'){meetingCapture.levels({id:a.id,visualLevel:payload.level});return;}
     if (payload.type === 'chunk') {
       if (a.pending.size >= 12) return fail(new Error('Opslag te traag; opname veilig gestopt.'), a);
       const promise = meetingCapture.chunk({ id: a.id, source: payload.source, sequence: payload.sequence, sampleOffset: payload.sampleOffset, pcm: new Uint8Array(payload.pcm) });
@@ -27,6 +30,7 @@ async function start(command) {
   streams.forEach((stream,n) => { if (!stream) return; a.context.createMediaStreamSource(new MediaStream(stream.getAudioTracks())).connect(a.node, 0,n); for (const track of stream.getAudioTracks()) { track.onended = () => { if (active === a) fail(new Error(`${n === 0 ? 'Microfoon' : 'Systeemgeluid'} is losgekoppeld.`)); }; track.onmute = () => { if (active === a) meetingCapture.levels({ id: a.id, mic: 0, system: 0, interruptedSource: n === 0 ? 'mic' : 'system' }); }; } });
   // Output is silence; graph stays pulled without feeding recorded audio to speakers.
   a.node.connect(a.context.destination); await a.context.resume();
+  await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error('Microfoon geeft nog geen audio door. Probeer opnieuw.')),5000);firstFrame.then(()=>{clearTimeout(timeout);resolve();});});
 }
 async function flush() {
   const a = active; if (!a) throw new Error('Capture is unavailable.');
