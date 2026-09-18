@@ -29,6 +29,7 @@ const defaults = Object.freeze({
   meetingMicrophone: true,
   meetingSystemAudio: true,
   meetingAudioApp: 'desktop-filtered',
+  meetingAutoStart: false,
   meetingAudioFilterVersion: 1,
   meetingAutoTranscribe: true,
   meetingAudioRetentionDays: 30,

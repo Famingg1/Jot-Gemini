@@ -39,6 +39,9 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
     }catch(error){results.ok=false;results.errors.push(error.message);process.exitCode=1;}finally{live?.closeNow();fs.writeFileSync(path.join(root,'live-verification.json'),JSON.stringify(results,null,2));}
     return;
   }
+  if(process.env.JOT_AUTO_SETTINGS_TEST){
+    try{await sleep(600);await click('button','Instellingen');await js(`document.querySelector('[data-settings="meeting"]').click()`);await sleep(300);await shot('automatic-meeting-settings');assert.equal(await js(`document.querySelector('#meeting-audio-app').options.length`),8);results.ok=true;}catch(error){results.ok=false;results.errors.push(error.stack);process.exitCode=1;}finally{fs.writeFileSync(path.join(root,'auto-settings.json'),JSON.stringify(results,null,2));}return;
+  }
   if(process.env.JOT_HUD_NOTE_TEST){
     try{
       storage.updateSettings({meetingAutoTranscribe:false});await sleep(600);hudWindow.showInactive();const hj=code=>hudWindow.webContents.executeJavaScript(code,true);

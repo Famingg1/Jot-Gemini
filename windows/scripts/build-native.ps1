@@ -31,3 +31,8 @@ $audioOutput = Join-Path $outputDirectory 'TakkieProcessAudio.exe'
 $mixerSource = Resolve-Path (Join-Path $PSScriptRoot "..\native\AudioMixer.cs")
 & $compiler /nologo /target:exe /platform:x64 /optimize+ "/out:$audioOutput" $audioSource $mixerSource
 if ($LASTEXITCODE -ne 0) { throw 'Process audio helper compilation failed.' }
+
+$detectorSource = Resolve-Path (Join-Path $PSScriptRoot '..\native\MeetingDetector.cs')
+$detectorOutput = Join-Path $outputDirectory 'TakkieMeetingDetector.exe'
+& $compiler /nologo /target:exe /platform:x64 /optimize+ "/out:$detectorOutput" /reference:System.dll /reference:System.Core.dll /reference:System.Web.Extensions.dll "/reference:$automationClient" "/reference:$automationTypes" $detectorSource
+if ($LASTEXITCODE -ne 0) { throw 'Meeting detector compilation failed.' }

@@ -7,12 +7,12 @@ function sanitizeSettingsPatch(patch = {}) {
   const clean = {};
   if (patch.hotkeys !== undefined) clean.hotkeys = require('../renderer/hotkeys').validate(patch.hotkeys);
   if (patch.noteHotkeys !== undefined) clean.noteHotkeys = require('../renderer/hotkeys').validate(patch.noteHotkeys);
-  for (const key of ['onboardingComplete', 'smartTranscription', 'sounds', 'showIdleIndicator', 'launchAtLogin', 'meetingMicrophone', 'meetingSystemAudio', 'meetingAutoTranscribe', 'largeHud', 'preserveCode']) {
+  for (const key of ['onboardingComplete', 'smartTranscription', 'sounds', 'showIdleIndicator', 'launchAtLogin', 'meetingMicrophone', 'meetingSystemAudio', 'meetingAutoTranscribe', 'meetingAutoStart', 'largeHud', 'preserveCode']) {
     if (typeof patch[key] === 'boolean') clean[key] = patch[key];
   }
   for (const [key, choices] of Object.entries({
     hotkey: ['right-control', 'caps-lock', 'f8'], theme: ['system', 'light', 'dark'],
-    meetingAudioApp: ['desktop-filtered','chrome','teams','zoom'],
+    meetingAudioApp: ['desktop-filtered','chrome','edge','brave','opera','teams','zoom','whatsapp'],
     language: ['auto', 'nl-NL', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'es-ES'],
     writingStyle: ['natural', 'concise', 'formal', 'code'], appLanguage: ['nl', 'en'],
     hudPosition: ['left', 'center', 'right']
@@ -36,7 +36,7 @@ function sanitizeSettingsPatch(patch = {}) {
 }
 
 function resolveMeetingAudioApp(requested, saved, diagnostic = false) {
-  const choices = diagnostic ? ['desktop-filtered','chrome','teams','zoom','all'] : ['desktop-filtered','chrome','teams','zoom'];
+  const choices = diagnostic ? ['desktop-filtered','chrome','edge','brave','opera','teams','zoom','whatsapp','all'] : ['desktop-filtered','chrome','edge','brave','opera','teams','zoom','whatsapp'];
   if (requested !== undefined && !choices.includes(requested)) throw Error('Kies alle apps zonder muziekapps, of een specifieke meeting-app.');
   return requested || (choices.includes(saved) ? saved : 'desktop-filtered');
 }

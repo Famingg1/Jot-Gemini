@@ -3,7 +3,7 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
-const { BrowserWindow, ipcMain, desktopCapturer, session, shell, safeStorage, dialog, protocol, app, powerMonitor } = require('electron');
+const { BrowserWindow, ipcMain, desktopCapturer, session, shell, safeStorage, dialog, protocol, app, powerMonitor, Notification } = require('electron');
 const { MeetingStorage } = require('./meeting-storage');
 const { MeetingManager } = require('./meeting-manager');
 const { CalendarService } = require('./calendar');
@@ -26,7 +26,7 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
     if(type==='start' && payload.system!==false && payload.audioApp && payload.audioApp!=='all') {
       processAudio=await require('./process-audio').startProcessAudio(payload.audioApp,pcm=>{
         if(!captureWindow.isDestroyed())captureWindow.webContents.send('meeting-capture:app-audio',{id:payload.id,pcm:new Uint8Array(pcm)});
-      },message=>manager.captureFault({id:payload.id,message}).catch(()=>{}));
+      },message=>manager.captureFault({id:payload.id,message}).catch(()=>{}),payload.audioPid);
       processAudioId=payload.id;
       payload={...payload,nativeSystem:true,nativeLatency:payload.audioApp==='desktop-filtered'?3200:0};
     }
@@ -94,16 +94,20 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
     if (!meetings.createNote) meetings.saveMeta(note.id, { state: 'ready', endedAt: new Date().toISOString() });
     changed(); return meetings.get(note.id);
   });
-  handle('meeting:start', async (options = {}) => {
+  const startMeeting=async (options = {},call=null) => {
     if (sessions.current || ['processing','inserting'].includes(sessions.state)) throw new Error('Rond eerst je dictatie af.');
     const audioApp=require('./settings').resolveMeetingAudioApp(options.audioApp,storage.settings.meetingAudioApp,Boolean(process.env.JOT_SMOKE&&process.env.JOT_TEST_PROFILE));
-    const calendarEvent=calendar.status().events.find(event=>event.id===options.eventId);
+    const meetingUrl=value=>{try{const u=new URL(value.startsWith('https://')?value:'https://'+value);return u.hostname+u.pathname;}catch{return '';}};
+    const calendarEvent=calendar.status().events.find(event=>event.id===options.eventId||(call?.url&&event.joinUrl&&meetingUrl(call.url)===meetingUrl(event.joinUrl)));
     const eventTitle=calendarEvent?.summary||calendarEvent?.title||null;
-    const result=await manager.start({ title: eventTitle||options.title, eventTitle, autoTitle: !options.title, eventId: options.eventId, mic: options.microphone ?? options.mic ?? storage.settings.meetingMicrophone, system: options.systemAudio ?? options.system ?? storage.settings.meetingSystemAudio, microphoneId: storage.settings.microphoneId,audioApp,participants:calendarEvent?.attendees||[] });
-    if(options.audioApp)storage.updateSettings({meetingAudioApp:audioApp});
+    const result=await manager.start({ title: eventTitle||options.title, eventTitle, autoTitle: !options.title, eventId: calendarEvent?.id||options.eventId, audioPid:call?.pid, detectedProvider:call?.provider, mic: options.microphone ?? options.mic ?? storage.settings.meetingMicrophone, system: options.systemAudio ?? options.system ?? storage.settings.meetingSystemAudio, microphoneId: storage.settings.microphoneId,audioApp,participants:calendarEvent?.attendees||[] });
+    if(options.audioApp&&!call)storage.updateSettings({meetingAudioApp:audioApp});
     await panel.open(result.id).catch(() => send('diagnostic', 'Opname gestart. Het compacte venster kon niet openen; gebruik de knoppen in Notetaker.'));
+    if(call){const provider={meet:'Google Meet',teams:'Teams',zoom:'Zoom',whatsapp:'WhatsApp'}[call.provider];try{if(Notification.isSupported())new Notification({title:provider+' gedetecteerd',body:'Opname gestart in TakkieAI.'}).show();}catch{}}
     return result;
-  });
+  };
+  handle('meeting:start',options=>startMeeting(options));
+  const autoMeetings=process.env.JOT_SMOKE?null:require('./meeting-detection').startAutoMeetings({getSettings:()=>storage.settings,busy:()=>active()?'meeting':Boolean(sessions.current)||['processing','inserting'].includes(sessions.state),start:call=>startMeeting({audioApp:call.audioApp},call),onError:()=>send('diagnostic','Automatisch opnemen kon niet starten. Start de opname handmatig in Notetaker.')});
   handle('meeting:panel', id => panel.open(id));
   handle('meeting:pause', () => manager.pause(), true);
   handle('meeting:resume', () => manager.resume(), true);
@@ -199,7 +203,7 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
     isCapture: contents => contents === captureWindow?.webContents,
     async dispose() {
       if (disposed) return; disposed = true;
-      clearInterval(interval); clearInterval(retryInterval); powerMonitor.removeListener('suspend', suspend);
+      autoMeetings?.close();clearInterval(interval); clearInterval(retryInterval); powerMonitor.removeListener('suspend', suspend);
       try {
         if (active()) {
           try { await manager.stop(); }

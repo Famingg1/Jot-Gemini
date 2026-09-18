@@ -5,10 +5,10 @@ const path=require('node:path');
 const {app}=require('electron');
 const executable=()=>app.isPackaged?path.join(process.resourcesPath,'app.asar.unpacked/native/bin/TakkieProcessAudio.exe'):path.join(app.getAppPath(),'native/bin/TakkieProcessAudio.exe');
 async function listAudioApps(){const {stdout}=await promisify(execFile)(executable(),['--list'],{windowsHide:true,timeout:10000});return JSON.parse(stdout);}
-async function startProcessAudio(kind,onData,onFault){
-  if(!['desktop-filtered','chrome','teams','zoom'].includes(kind))throw Error('Kies een geldige audiobron.');
-  const candidates=kind==='desktop-filtered'?[{pid:'--desktop-filtered'}]:(await listAudioApps()).filter(a=>a.app===kind);
-  if(!candidates.length)throw Error('Open eerst '+({chrome:'Chrome met je meeting',teams:'Microsoft Teams',zoom:'Zoom'}[kind])+'.');
+async function startProcessAudio(kind,onData,onFault,targetPid){
+  if(!['desktop-filtered','chrome','edge','brave','opera','teams','zoom','whatsapp'].includes(kind))throw Error('Kies een geldige audiobron.');
+  const candidates=kind==='desktop-filtered'?[{pid:'--desktop-filtered'}]:(await listAudioApps()).filter(a=>a.app===kind&&(!targetPid||a.pid===targetPid));
+  if(!candidates.length)throw Error('Open eerst '+({chrome:'Chrome met je meeting',teams:'Microsoft Teams',zoom:'Zoom',edge:'Edge',brave:'Brave',opera:'Opera',whatsapp:'WhatsApp'}[kind])+'.');
   if(candidates.length>1)throw Error('Er zijn meerdere processen met een venster voor deze app. Sluit de extra appvensters en probeer opnieuw.');
   return new Promise((resolve,reject)=>{
     const child=spawn(executable(),[String(candidates[0].pid)],{windowsHide:true,stdio:['pipe','pipe','pipe']});

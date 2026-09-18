@@ -18,6 +18,7 @@ async function refresh() {
   const value = await request('get');
   const switched = meeting?.id !== value.id; meeting = value;
   $('title').textContent = value.title;
+  $('detected-call').hidden=!value.detectedProvider||!['recording','paused'].includes(value.state);$('detected-call').textContent=({meet:'Google Meet',teams:'Teams',zoom:'Zoom',whatsapp:'WhatsApp'}[value.detectedProvider]||'Meeting')+' gedetecteerd — opname gestart';
   if (switched || (!dirty && document.activeElement !== $('notes'))) $('notes').value = value.notes;
   const recording = ['recording','paused'].includes(value.state);
   $('pause').hidden = !recording; $('stop').hidden = !recording;

@@ -45,6 +45,7 @@ if (!app.requestSingleInstanceLock()) {
 
 app.whenReady().then(async () => {
   if (process.env.JOT_SMOKE) console.log('SMOKE: app ready');
+  if(process.platform==='win32')app.setAppUserModelId('com.ammaar.jot');
   storage = new JotStorage(app.getPath('userData'), safeStorage);
   if (!storage.settings.showIdleIndicator) storage.updateSettings({ showIdleIndicator: true });
   if (process.env.JOT_CAPTURE_DIR) {

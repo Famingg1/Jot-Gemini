@@ -1,6 +1,6 @@
 {
   "name": "jot-windows",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "description": "TakkieAI smart dictation for Windows, powered by Gemini",
   "main": "src/main/index.js",
   "author": "Jot contributors",
@@ -37,12 +37,14 @@
       "src/**/*",
       "native/bin/JotNativeHelper.exe",
       "native/bin/TakkieProcessAudio.exe",
+      "native/bin/TakkieMeetingDetector.exe",
       "package.json",
       "scripts/smoke.js"
     ],
     "asarUnpack": [
       "native/bin/JotNativeHelper.exe",
-      "native/bin/TakkieProcessAudio.exe"
+      "native/bin/TakkieProcessAudio.exe",
+      "native/bin/TakkieMeetingDetector.exe"
     ],
     "extraResources": [
       {
