@@ -41,9 +41,9 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
   }
   if(process.env.JOT_HUD_NOTE_TEST){
     try{
-      await sleep(600);hudWindow.showInactive();const hj=code=>hudWindow.webContents.executeJavaScript(code,true);
+      storage.updateSettings({meetingAutoTranscribe:false});await sleep(600);hudWindow.showInactive();const hj=code=>hudWindow.webContents.executeJavaScript(code,true);
       const point=await hj(`(()=>{const r=document.getElementById('pill').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()`);hudWindow.webContents.sendInputEvent({type:'mouseMove',...point});await sleep(300);await shot('hud-two-buttons',hudWindow);
-      assert.ok(await hj(`document.getElementById('note-hit').getBoundingClientRect().width>0`));await hj(`document.getElementById('note-hit').click()`);await sleep(400);assert.ok(await js(`document.getElementById('new-meeting-dialog').open`));await js(`document.getElementById('new-meeting-dialog').close()`);
+      assert.ok(await hj(`document.getElementById('note-hit').getBoundingClientRect().width>0`));await hj(`document.getElementById('note-hit').click()`);for(let n=0;n<60&&services.manager.state.state!=='recording';n++)await sleep(250);assert.equal(services.manager.state.state,'recording');assert.ok(services.panel.window);assert.equal(await js(`Boolean(document.querySelector('#new-meeting-dialog'))`),false);await js(`window.jot.stopMeeting()`);await sleep(400);
       await click('button','Instellingen');await sleep(250);
       await js(`document.querySelector('#note-shortcut-list button').click()`);await sleep(250);
       await js(`for(const [type,code] of [['keydown','AltRight'],['keydown','KeyN'],['keyup','KeyN'],['keyup','AltRight']])document.dispatchEvent(new KeyboardEvent(type,{code,bubbles:true}));document.getElementById('shortcut-save').click()`);await sleep(350);
@@ -55,12 +55,10 @@ async function run({ mainWindow, hudWindow, services, storage, sessions, capture
   if(process.env.JOT_PANEL_TEST){
     const panelErrors=[];
     try{
-      storage.updateSettings({meetingAutoTranscribe:false});await sleep(600);
+      storage.updateSettings({meetingAutoTranscribe:false,meetingAudioApp:'desktop-filtered'});await sleep(600);
       services.calendar.cache.events=[{id:'test-event',title:'Testafspraak',start:new Date().toISOString(),attendees:[{name:'Alice',email:'alice@example.test'},{name:'Bob',email:'bob@example.test'}]}];
-      await navigate('notetaker');await click('button','Nieuwe opname');
-      assert.deepEqual(await js(`[...document.querySelector('#meeting-audio-app').options].map(o=>o.value)`),['desktop-filtered','chrome','teams','zoom']);
-      assert.equal(await js(`Boolean(document.querySelector('#meeting-title'))`),false);await shot('new-meeting-auto-title');
-      await js(`document.querySelector('#new-meeting-dialog').dataset.event='test-event';document.querySelector('#meeting-audio-app').value='desktop-filtered';document.querySelector('#new-meeting-form').requestSubmit()`);
+      await navigate('notetaker');await click('button','Opnemen');
+      assert.equal(await js(`Boolean(document.querySelector('#new-meeting-dialog'))`),false);
       for(let n=0;n<60&&!services.panel.window;n++)await sleep(250);
       assert.ok(services.panel.window,'Separate meeting window opens');const panel=services.panel.window;
       panel.webContents.on('console-message',(_e,d)=>{if(d.level==='error')panelErrors.push(d.message);});
