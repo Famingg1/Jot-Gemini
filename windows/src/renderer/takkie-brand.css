@@ -1,0 +1,20 @@
+/* Brand source: ../takkieai/tailwind.config.ts (takkie colors). */
+:root{--takkie-purple:#5a298b;--takkie-lilac:#a354e8;--takkie-blue:#00a9ff;--primary:var(--takkie-purple);--primary-hover:#48216f;--primary-soft:#f0e8f8;--on-primary:#fff;--focus:var(--takkie-purple)}
+html[data-theme=dark]{--primary:#c496ee;--primary-hover:#d2aff3;--primary-soft:#382447;--on-primary:#201329;--focus:#c496ee}
+:root .primary-button,:root .primary,html[data-theme=dark] .primary-button{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+:root .primary-button:hover,:root .primary:hover,html[data-theme=dark] .primary-button:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
+:root .nav-item.is-active,html[data-theme=dark] .nav-item.is-active{background:var(--primary-soft);color:var(--primary)}
+:root .nav-item.is-active .nav-icon,html[data-theme=dark] .nav-item.is-active .nav-icon{color:var(--primary)}
+:root .brand,html[data-theme=dark] .brand{color:var(--primary)}
+:root .brand-mark i,html[data-theme=dark] .brand-mark i{background:var(--takkie-blue)!important}
+:root .brand-mark i:nth-child(2),html[data-theme=dark] .brand-mark i:nth-child(2){background:var(--takkie-lilac)!important}
+:root input[type=checkbox],:root input[type=radio],:root progress{accent-color:var(--primary)}
+:root button:focus-visible,:root input:focus-visible,:root textarea:focus-visible,:root select:focus-visible{outline-color:var(--focus)}
+:root .usage-bar{background:var(--takkie-purple)}
+:root .empty-wave i{background:var(--takkie-lilac)}
+:root .meeting-intro{background:linear-gradient(120deg,#29183a,var(--takkie-purple));color:#fff}
+:root .meeting-intro p{color:#f0e8f8}
+:root .meeting-intro .primary-button{background:#fff;color:var(--takkie-purple);border-color:#fff}
+:root nav button[aria-selected=true]{border-color:var(--primary);color:var(--primary)}
+:root #detected-call{background:var(--primary-soft);color:var(--primary)}
+:root .activity-cell.intensity-1{background:#e2cdf3}:root .activity-cell.intensity-2{background:#b986e1}:root .activity-cell.intensity-3{background:#9153bf}:root .activity-cell.intensity-4{background:var(--takkie-purple)}
