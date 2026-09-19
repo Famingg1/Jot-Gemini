@@ -81,6 +81,8 @@ contextBridge.exposeInMainWorld('jot', {
   onState: (callback) => ipcRenderer.on('dictation:state', (_event, value) => callback(value)),
   onAudioCommand: (callback) => ipcRenderer.on('audio:command', (_event, value) => callback(value)),
   onHistoryChanged: (callback) => ipcRenderer.on('history:changed', callback),
+  diagnosticsReport: () => ipcRenderer.invoke('diagnostics:report'),
+  openLogs: () => ipcRenderer.invoke('diagnostics:open-logs'),
   onDiagnostic: (callback) => ipcRenderer.on('diagnostic', (_event, value) => callback(value)),
   onHudState: (callback) => ipcRenderer.on('hud:state', (_event, value) => callback(value)),
   onHudLevel: (callback) => ipcRenderer.on('hud:level', (_event, value) => callback(value))

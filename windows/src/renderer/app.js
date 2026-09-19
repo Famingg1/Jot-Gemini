@@ -308,6 +308,8 @@ function bindEvents() {
     else showNotice(result.message, true);
   });
   byId('api-key-clear').addEventListener('click', async () => { await window.jot.clearApiKey(); state.settings.hasApiKey = false; syncControls(); });
+  byId('diagnostics-copy').addEventListener('click', async () => { const report = await window.jot.diagnosticsReport(); await window.jot.copyHistory(report); showNotice('Diagnose gekopieerd naar het klembord. Plak dit in je bericht; het bevat geen transcripties of sleutels.'); });
+  byId('diagnostics-open').addEventListener('click', () => window.jot.openLogs());
   document.querySelectorAll('.external-link').forEach((button) => button.addEventListener('click', () => window.jot.openExternal(button.dataset.url)));
   byId('history-dialog').querySelector('.dialog-close').addEventListener('click', () => byId('history-dialog').close());
   byId('history-dialog').addEventListener('click', (event) => { if (event.target === byId('history-dialog')) byId('history-dialog').close(); });

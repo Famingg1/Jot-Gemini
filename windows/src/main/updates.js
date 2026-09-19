@@ -3,7 +3,7 @@
 // Install during normal graceful quit, never when the main window just hides.
 let status = 'Updates automatisch controleren';
 let checkNow = async () => {};
-function startUpdates({ updater, onStatus = () => {} }) {
+function startUpdates({ updater, onStatus = () => {}, onEvent = () => {} }) {
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
   updater.allowPrerelease = false;
@@ -11,10 +11,10 @@ function startUpdates({ updater, onStatus = () => {} }) {
   let checking = false;
   const set = value => { status = value; onStatus(); };
   updater.on('checking-for-update', () => set('Controleren op updates…'));
-  updater.on('update-available', () => set('Update wordt gedownload…'));
+  updater.on('update-available', info => { set('Update wordt gedownload…'); onEvent('update-available', info?.version); });
   updater.on('update-not-available', () => set('TakkieAI is bijgewerkt'));
-  updater.on('update-downloaded', () => set('Update klaar — wordt bij afsluiten geïnstalleerd'));
-  updater.on('error', () => set('Updatecontrole niet gelukt — probeer later opnieuw'));
+  updater.on('update-downloaded', info => { set('Update klaar — wordt bij afsluiten geïnstalleerd'); onEvent('update-downloaded', info?.version); });
+  updater.on('error', error => { set('Updatecontrole niet gelukt — probeer later opnieuw'); onEvent('error', error?.message); });
   checkNow = async () => {
     if (checking) return;
     checking = true;

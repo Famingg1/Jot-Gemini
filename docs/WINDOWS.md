@@ -87,6 +87,11 @@ Artifacts appear under `windows\dist`. Public releases should be Authenticode-si
 
 ## Windows permissions and troubleshooting
 
+### Diagnostics and logs
+
+TakkieAI keeps a local diagnostic log (rotated at 1 MB, three files) under the app data folder in a `logs` subfolder. It records app start, dictation and meeting failures, update checks, renderer errors and crashes, with API keys redacted and never any transcript or audio. Settings → Geavanceerd → Diagnostiek has "Diagnose kopiëren" (copies version, runtime, settings summary and the last 200 log lines to the clipboard, ready to paste into a bug report) and "Logmap openen".
+
+
 ### The microphone does not start
 
 Open Windows Settings → Privacy & security → Microphone. Enable microphone access and “Let desktop apps access your microphone,” then restart TakkieAI. Use Settings → Dictation → Microphone to select a different input.

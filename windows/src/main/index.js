@@ -19,6 +19,7 @@ let recordingShortcut = false;
 let shortcutTimeout;
 
 let mainWindow;
+let log;
 let hudWindow;
 let tray;
 let storage;
@@ -48,6 +49,10 @@ app.whenReady().then(async () => {
   if (process.env.JOT_SMOKE) console.log('SMOKE: app ready');
   if(process.platform==='win32')app.setAppUserModelId('com.ammaar.jot');
   storage = new JotStorage(app.getPath('userData'), safeStorage);
+  log = new (require('./logger').Logger)(path.join(app.getPath('userData'), 'logs'));
+  log.info('app', `start ${app.getVersion()} electron ${process.versions.electron} windows ${require('node:os').release()} packaged ${app.isPackaged}`);
+  process.on('uncaughtException', error => { log.error('main', error); });
+  process.on('unhandledRejection', reason => { log.error('main', reason instanceof Error ? reason : String(reason)); });
   if (!storage.settings.showIdleIndicator) storage.updateSettings({ showIdleIndicator: true });
   if (process.env.JOT_CAPTURE_DIR) {
     storage.updateSettings({ onboardingComplete: true, showIdleIndicator: true });
@@ -73,10 +78,12 @@ app.whenReady().then(async () => {
   nativeHelper = new NativeHelper({ appPath: app.getAppPath(), resourcesPath: process.resourcesPath, packaged: app.isPackaged });
   nativeHelper.on('event', handleNativeEvent);
   nativeHelper.on('error', (error) => broadcastDiagnostic(error.message));
+  nativeHelper.on('event', event => { if (event?.type === 'error') log.warn('helper', `${event.app}: ${event.title}`); });
   if (!process.env.JOT_SMOKE) nativeHelper.start(require('../renderer/hotkeys').fromSettings(storage.settings), require('../renderer/hotkeys').notesFromSettings(storage.settings));
 
   sessions = new SessionManager({ storage, nativeHelper, clipboard });
   sessions.on('state', (state) => {
+    if (['error', 'offline', 'clipboard', 'secure'].includes(state.state)) log.warn('dictation', `${state.state}: ${state.message || ''}`);
     nativeHelper.setDictating(['starting', 'listening', 'locked'].includes(state.state));
     if (!services?.active()) hudWindow?.webContents.send('hud:state', state);
     mainWindow?.webContents.send('dictation:state', state);
@@ -90,10 +97,11 @@ app.whenReady().then(async () => {
   registerIpc();
   if (process.env.JOT_SMOKE) console.log('SMOKE: IPC ready');
   services = await createDesktopServices({ storage, mainWindow, hudWindow, sessions, hardenWebContents, updateTray });
+  services.manager.on('progress', value => { if (value?.error) log.warn('meeting', `${value.error.code || 'error'}: ${value.error.message || ''}`); });
   if (process.env.JOT_SMOKE) console.log('SMOKE: services ready');
   mainWindow.webContents.send('services:ready');
   if (app.isPackaged && !process.env.JOT_TEST_PROFILE) {
-    require('./updates').startUpdates({ updater: require('electron-updater').autoUpdater, onStatus: () => updateTray() });
+    require('./updates').startUpdates({ updater: require('electron-updater').autoUpdater, onStatus: () => updateTray(), onEvent: (event, detail) => log.info('updates', detail ? `${event}: ${detail}` : event) });
   }
   if (process.env.JOT_SMOKE) {
     await require('../../scripts/smoke').run({ mainWindow, hudWindow, services, storage, sessions, captureConsoleErrors });
@@ -132,7 +140,7 @@ function createMainWindow() {
   nativeTheme.on('updated', applyTitleBarTheme);
   hardenWebContents(mainWindow.webContents);
   mainWindow.webContents.on('console-message', (_event, details) => {
-    if (details.level === 'error') captureConsoleErrors.push(details.message);
+    if (details.level === 'error') { captureConsoleErrors.push(details.message); log.error('renderer', `${details.message} (${details.sourceId}:${details.lineNumber})`); }
   });
   mainWindow.once('ready-to-show', () => {
     if (!app.getLoginItemSettings().wasOpenedAtLogin || process.env.JOT_CAPTURE_DIR) mainWindow.show();
@@ -382,6 +390,8 @@ function registerIpc() {
   handle('dictation:cancel', () => sessions.cancel(), true);
   handle('dictation:undo-cancel', () => sessions.undoCancel(), true);
   handle('dictation:paste-last', () => pasteLastTranscript(), true);
+  handle('diagnostics:report', () => diagnosticsReport());
+  handle('diagnostics:open-logs', async () => { if (log) { fs.mkdirSync(log.directory, { recursive: true }); await shell.openPath(log.directory); } return true; });
   ipcMain.on('audio:status',(event,payload)=>{if(event.sender!==mainWindow.webContents||event.senderFrame!==event.sender.mainFrame)return;if(payload?.status==='ready')sessions.captureReady(payload.id);else if(payload?.status==='stopped')sessions.captureStopped(payload.id);else if(payload?.status==='stop-error')sessions.captureStopped(payload.id,false);else if(payload?.status==='error')sessions.captureFailed(payload.id);});
   ipcMain.on('audio:chunk', (event, payload) => {
     if (event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame || services?.active()) return;
@@ -440,7 +450,25 @@ function hardenWebContents(webContents) {
 }
 
 function broadcastDiagnostic(message) {
+  log?.warn('app', message);
   mainWindow?.webContents.send('diagnostic', String(message));
+}
+
+// Version, runtime and settings summary plus the recent log, without secrets or transcripts.
+function diagnosticsReport() {
+  const s = storage.settings;
+  const head = [
+    `TakkieAI ${app.getVersion()} (${app.isPackaged ? 'geïnstalleerd' : 'ontwikkeling'})`,
+    `Electron ${process.versions.electron}, Chromium ${process.versions.chrome}, Node ${process.versions.node}`,
+    `Windows ${require('node:os').release()} ${process.arch}`,
+    `Dictatiemodel ${s.model}, meetingmodel ${s.meetingModel}, taal ${s.language}, smart ${s.smartTranscription}`,
+    `Sneltoetsen ${JSON.stringify(require('../renderer/hotkeys').fromSettings(s))}, notities ${JSON.stringify(require('../renderer/hotkeys').notesFromSettings(s))}`,
+    `Gemini-key ${storage.apiKey() ? 'opgeslagen' : 'ontbreekt'}, ElevenLabs-key ${storage.elevenLabsKey() ? 'opgeslagen' : 'ontbreekt'}`,
+    `Sneltoets-helper ${nativeHelper?.process ? 'actief' : 'niet gestart'}${nativeHelper?.lastError ? ', fout: ' + nativeHelper.lastError : ''}`,
+    `Updates: ${require('./updates').updateStatus()}`,
+    `Logmap ${log?.directory || '-'}`
+  ];
+  return head.join('\n') + '\n\n---- laatste logregels ----\n' + (log?.tail(200).join('\n') || '(leeg)') + '\n';
 }
 
 async function runCaptureSuite() {
