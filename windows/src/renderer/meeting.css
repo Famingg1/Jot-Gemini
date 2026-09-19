@@ -31,7 +31,7 @@ button{font:inherit;color:var(--ink);cursor:pointer;border:1px solid var(--strok
 button:hover{background:rgba(255,255,255,.16)}
 button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button:disabled{opacity:.55;cursor:wait}
-.primary{border-color:transparent;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;font-weight:600}
+.primary{border:0;padding:10px 15px;background:linear-gradient(135deg,#a468ea,#6a2fb5);color:#fff;font-weight:600}
 .primary:hover{filter:brightness(1.08)}
 
 #error{margin:12px var(--pad) 0;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,150,130,.35);background:var(--danger-bg);color:var(--danger);font-size:13px}

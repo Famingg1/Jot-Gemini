@@ -9,7 +9,7 @@
   --accent: #c496ee; --accent-deep: #7b3fc2; --live: #00a9ff;
   --shell: rgba(8,6,14,.8); --glow: radial-gradient(70% 45% at 30% 0%, rgba(196,150,238,.26), transparent 60%), radial-gradient(50% 40% at 100% 100%, rgba(0,169,255,.1), transparent 60%);
   --nav-on: rgba(196,150,238,.18); --nav-on-ink: #e9d8ff; --nav-on-border: rgba(196,150,238,.3);
-  --primary-gradient: linear-gradient(135deg, #c496ee, #7b3fc2); --primary-hover-gradient: linear-gradient(135deg, #d4b0f4, #7b3fc2);
+  --primary-gradient: linear-gradient(135deg, #a468ea, #6a2fb5); --primary-hover-gradient: linear-gradient(135deg, #b57cf2, #7b3fc2);
   --dialog: rgba(16,11,26,.9); --toast: rgba(24,17,36,.94); --option: #1c1329; --knob: #fff;
   --scroll: rgba(255,255,255,.16); --scroll-hover: rgba(255,255,255,.28);
   --bg: transparent; --surface: var(--glass); --surface-2: var(--glass-2); --surface-3: var(--glass-3);
@@ -25,7 +25,7 @@ html[data-theme=light] {
   --accent: #a354e8; --accent-deep: #7b3fc2; --live: #00a9ff;
   --shell: rgba(255,255,255,.8); --glow: radial-gradient(60% 45% at 90% 0%, rgba(255,111,174,.2), transparent 60%), radial-gradient(60% 45% at 0% 100%, rgba(163,84,232,.18), transparent 60%);
   --nav-on: rgba(123,63,194,.12); --nav-on-ink: #4a1f7a; --nav-on-border: rgba(123,63,194,.22);
-  --primary-gradient: linear-gradient(135deg, #f0abfc, #7b3fc2); --primary-hover-gradient: linear-gradient(135deg, #f5c0ff, #6a34ad);
+  --primary-gradient: linear-gradient(135deg, #b16cf0, #6a2fb5); --primary-hover-gradient: linear-gradient(135deg, #bd80f4, #7b3fc2);
   --dialog: rgba(255,255,255,.92); --toast: rgba(27,18,38,.94); --option: #ffffff; --knob: #fff;
   --scroll: rgba(27,18,38,.18); --scroll-hover: rgba(27,18,38,.32);
   --primary-hover: #b06ff0; --primary-soft: rgba(163,84,232,.14); --on-primary: #fff;
@@ -90,7 +90,8 @@ html { background: var(--shell); }
 .glass .helper-warning { background: rgba(255,207,107,.12); border-color: rgba(255,207,107,.35); }
 
 /* Controls. */
-.glass .primary-button { background: var(--primary-gradient); border: 1px solid transparent; color: #fff; font-weight: 600; }
+/* No transparent border: it let the light end of the gradient show as a pale rim around the button. */
+.glass .primary-button { background: var(--primary-gradient); border: 0; padding: 8px 14px; color: #fff; font-weight: 600; }
 .glass .primary-button:hover { background: var(--primary-hover-gradient); }
 .glass .secondary-button, .glass input, .glass select, .glass textarea, .glass .audio-box select, .glass #meeting-title, .glass .tool-form input, .glass .tool-form textarea, .glass .tool-form select, .glass .settings-group select, .glass .settings-group input:not([type=checkbox]) { background: var(--glass-2) !important; border: 1px solid var(--stroke-2) !important; color: var(--ink) !important; border-radius: 10px; }
 .glass .secondary-button:hover { background: var(--glass-3) !important; }
