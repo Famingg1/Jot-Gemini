@@ -2,7 +2,7 @@
 
 ## Notetaker (0.4)
 
-The Windows app now includes a Flow-style Notetaker, compact black recording HUD, Insights, snippets, writing styles, explicit text transforms and a local scratchpad. Start a recording with the microphone, system audio, or both. Each source and a mixed track are saved locally as bounded WAV segments. Pause/resume and final flush acknowledgements preserve the captured timeline. Interrupted recordings can be recovered and retried.
+The Windows app now includes a Flow-style Notetaker, compact black recording HUD, Insights, snippets, writing styles, explicit text transforms and a local scratchpad. Start a recording with the microphone, system audio, or both. Each source and a mixed track are saved locally as bounded WAV segments. Computer audio is captured after the Windows volume control, so quiet playback is automatically lifted to a usable level for transcription, capped so it never exceeds your own microphone level and never attenuated. Pause/resume and final flush acknowledgements preserve the captured timeline. Interrupted recordings can be recovered and retried.
 
 Meetings use the configured transcription model (default `gemini-3.5-transcribe`) for timestamped speaker segments, then a separate configurable text model for summaries, decisions and action items. Names remain editable; speaker labels across transcription batches are intentionally uncertain. Notes remain separate from generated content. Online transcription uploads audio to Google; local storage does not mean offline AI.
 
@@ -29,7 +29,9 @@ TakkieAI for Windows is a full desktop port of the macOS app. It runs from the s
 ## Supported workflow
 
 - Hold right Ctrl to record; release to transcribe and insert.
-- Press Space while recording to lock hands-free mode. Press right Ctrl again to finish or Esc to cancel.
+- Press Space while recording to lock hands-free mode. Press right Ctrl again to finish or Esc to cancel. While TakkieAI is recording, Esc is consumed by the dictation and never reaches the app underneath. After Esc the HUD offers "Ongedaan maken" for three seconds; click it to transcribe and insert the recording anyway.
+- Meetings can be transcribed by ElevenLabs Scribe v2 instead of Gemini (Settings → Meetings → Transcriptiemodel). Scribe takes the whole recording in one request, so speaker labels stay consistent across the meeting; it needs your own ElevenLabs API key (stored encrypted, like the Gemini key) and only the meeting audio, the language setting and your dictionary terms are sent to `api.elevenlabs.io`. Summaries still use Gemini.
+- Thinking pauses do not cost transcription minutes: before a dictation is uploaded, every pause longer than about a second is shortened to half a second in a temporary copy. The original recording in History is untouched. Meeting recordings are never trimmed, so pauses and timing stay intact.
 - Change the trigger to Caps Lock or F8 in Settings.
 - Use Gemini 3.5 Transcribe in Smart or Verbatim mode with automatic language detection or a fixed language.
 - Bias recognition with up to 100 dictionary terms, then apply deterministic replacement rules locally.
@@ -42,7 +44,7 @@ TakkieAI for Windows is a full desktop port of the macOS app. It runs from the s
 
 `windows/src/main/` is the trusted Electron main process. It owns settings, encrypted credentials, recording folders, Gemini requests, retention, tray behavior, and the dictation state machine. `windows/src/renderer/` is a sandboxed local UI with a strict Content Security Policy and no direct Node.js or network access.
 
-`windows/native/JotNativeHelper.cs` compiles to a small .NET Framework executable. It installs a Windows low-level keyboard hook, watches only the configured dictation key plus Space/Esc gestures, records the foreground window identity, refuses to start in UI Automation password fields, and sends Unicode text with `SendInput`. TakkieAI copies the transcript to the clipboard if the foreground window changed or insertion cannot be confirmed.
+`windows/native/JotNativeHelper.cs` compiles to a small .NET Framework executable. It installs a Windows low-level keyboard hook, watches only the configured dictation key plus Space/Esc gestures, refuses to start in UI Automation password fields, and pastes into whatever has focus with `SendInput`. TakkieAI copies the transcript to the clipboard only when the paste itself cannot be confirmed.
 
 Audio is captured as 16-bit mono PCM and finalized as WAV. PCM is flushed to the session folder while recording so a partial file can be recovered after an abnormal shutdown. Short files are sent inline; larger files use the Gemini Files API before transcription.
 
@@ -95,7 +97,7 @@ Another utility may consume Caps Lock or F8. Switch to right Ctrl in TakkieAI Se
 
 ### Text was copied instead of inserted
 
-TakkieAI deliberately refuses to type if focus moved away from the window where dictation started. Return to the intended field and press Ctrl+V. Elevated applications can also reject input from a non-elevated TakkieAI process; run both applications at the same integrity level instead of running TakkieAI as administrator.
+TakkieAI always inserts into whatever field has focus at the moment the transcript is ready, even if you switched windows while dictating. The transcript only lands on the clipboard when the paste itself fails. Elevated applications can reject input from a non-elevated TakkieAI process; run both applications at the same integrity level instead of running TakkieAI as administrator.
 
 ### Password fields
 

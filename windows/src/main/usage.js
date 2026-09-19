@@ -23,7 +23,17 @@ class Usage {
     const item=this.data.costs[month]||{usd:0,requests:0,unpriced:0,audioMs:0};
     item.requests++;item.audioMs+=ms;
     // Google's blended estimate, 2026-09-18. Unknown models are never priced as zero.
-    if(model==='gemini-3.5-transcribe')item.usd+=ms/60000*.005;else item.unpriced++;
+    // ElevenLabs Scribe v2 API list price 2026-09-19: $0.22 per hour.
+    if(model==='gemini-3.5-transcribe')item.usd+=blended(ms);else if(model==='scribe_v2')item.usd+=ms/3600000*.22;else item.unpriced++;
+    this.data.costs[month]=item;this.persist();
+  }
+  // Replaces the blended estimate of one attempt by the token-metered price once the response is in.
+  settle(model,usage,ms,at=new Date()){
+    if(this.error||model!=='gemini-3.5-transcribe')return;
+    const tokens=tokenCounts(usage);if(!tokens)return;
+    const month=monthOf(at);const item=this.data.costs[month];if(!month||!item)return;
+    // List price 2026-09-16: $2.00 per 1M audio input tokens, $12.00 per 1M text output tokens.
+    item.usd+=tokens.input*2/1e6+tokens.output*12/1e6-blended(ms);item.metered=(item.metered||0)+1;
     this.data.costs[month]=item;this.persist();
   }
   snapshot(month=monthOf(new Date())){
@@ -34,4 +44,12 @@ class Usage {
     result.months=[...new Set([monthOf(new Date()),...Object.values(this.data.records).map(r=>r.month),...Object.keys(this.data.costs)])].sort().reverse();return result;
   }
 }
-module.exports={Usage,monthOf};
+const blended=ms=>ms/60000*.005;
+function tokenCounts(usage){
+  if(!usage||typeof usage!=='object')return null;
+  const sum=list=>Array.isArray(list)?list.reduce((total,item)=>total+(Number(item?.tokens)||0),0):null;
+  const input=Number.isFinite(usage.total_input_tokens)?usage.total_input_tokens:Number.isFinite(usage.promptTokenCount)?usage.promptTokenCount:sum(usage.input_tokens_by_modality);
+  const output=Number.isFinite(usage.total_output_tokens)?usage.total_output_tokens:Number.isFinite(usage.candidatesTokenCount)?usage.candidatesTokenCount:sum(usage.output_tokens_by_modality);
+  return Number.isFinite(input)&&Number.isFinite(output)&&input>=0&&output>=0?{input,output}:null;
+}
+module.exports={Usage,monthOf,tokenCounts};

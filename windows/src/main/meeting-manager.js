@@ -3,7 +3,7 @@ const { EventEmitter } = require('node:events');
 const { MeetingWriter, RATE } = require('./meeting-storage');
 const { MeetingTranscriber } = require('./meeting-transcriber');
 class MeetingManager extends EventEmitter {
-  constructor({ storage, getApiKey, getSettings, capture, transcriber }) { super(); Object.assign(this, { storage, capture, getSettings }); this.active = null; this.transition = null; this.transcriber = transcriber || new MeetingTranscriber({ storage, getApiKey, getSettings, onProgress: progress => { this.emit('progress', progress); this.emit('changed'); } }); }
+  constructor({ storage, getApiKey, getElevenLabsKey, getSettings, capture, transcriber }) { super(); Object.assign(this, { storage, capture, getSettings }); this.active = null; this.transition = null; this.transcriber = transcriber || new MeetingTranscriber({ storage, getApiKey, getElevenLabsKey, getSettings, onProgress: progress => { this.emit('progress', progress); this.emit('changed'); } }); }
   get state() { return this.active ? this.storage.meta(this.active.id) : { state: 'idle', id: null }; }
   publish() { const state = this.state; this.emit('state', state); this.emit('changed'); return state; }
   async start(options = {}) {

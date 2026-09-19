@@ -30,7 +30,8 @@ function createMeetingPanel({ manager, meetings, hardenWebContents }) {
       if (window && !window.isDestroyed() && meetingId !== id) await window.webContents.executeJavaScript('window.flushMeetingNotes?.()');
       meetingId = id;
       if (!window || window.isDestroyed()) {
-        window = new BrowserWindow({ width: 560, height: 760, minWidth: 375, minHeight: 500, show: false, title: 'Meeting · TakkieAI', backgroundColor: '#ffffff', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, '..', 'meeting-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+        // Glass: Windows 11 acrylic behind a custom title bar; the native window buttons stay as an overlay.
+        window = new BrowserWindow({ width: 560, height: 760, minWidth: 375, minHeight: 500, show: false, title: 'Meeting · TakkieAI', backgroundColor: '#00000000', backgroundMaterial: 'acrylic', titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: '#f5f2fa', height: 40 }, autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, '..', 'meeting-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
         hardenWebContents(window.webContents);
         window.on('close', event => { if (!closing) { event.preventDefault(); window.webContents.send('meeting-panel:close'); } });
         await window.loadFile(path.join(__dirname, '..', 'renderer', 'meeting.html'));

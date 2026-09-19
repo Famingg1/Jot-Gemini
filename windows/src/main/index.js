@@ -10,6 +10,7 @@ const { JotStorage } = require('./storage');
 const { NativeHelper } = require('./native-helper');
 const { SessionManager } = require('./session-manager');
 const { validateKey, normalizeError } = require('./gemini');
+const { validateElevenLabsKey, normalizeElevenLabsError } = require('./elevenlabs');
 const { sanitizeSettingsPatch } = require('./settings');
 const { createDesktopServices } = require('./desktop-services');
 const { dockBounds, nearestAnchor } = require('./hud-layout');
@@ -76,6 +77,7 @@ app.whenReady().then(async () => {
 
   sessions = new SessionManager({ storage, nativeHelper, clipboard });
   sessions.on('state', (state) => {
+    nativeHelper.setDictating(['starting', 'listening', 'locked'].includes(state.state));
     if (!services?.active()) hudWindow?.webContents.send('hud:state', state);
     mainWindow?.webContents.send('dictation:state', state);
     updateTray();
@@ -112,7 +114,11 @@ function createMainWindow() {
     minHeight: 560,
     show: false,
     title: 'TakkieAI',
-    backgroundColor: '#F6F5F1',
+    // Glass: Windows 11 acrylic behind a custom title bar; native window buttons stay as an overlay.
+    backgroundColor: '#00000000',
+    backgroundMaterial: 'acrylic',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#00000000', symbolColor: '#f5f2fa', height: 40 },
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
@@ -122,6 +128,8 @@ function createMainWindow() {
     }
   });
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  applyTitleBarTheme();
+  nativeTheme.on('updated', applyTitleBarTheme);
   hardenWebContents(mainWindow.webContents);
   mainWindow.webContents.on('console-message', (_event, details) => {
     if (details.level === 'error') captureConsoleErrors.push(details.message);
@@ -186,7 +194,7 @@ function positionHud() {
 function createTray() {
   const iconPath = app.isPackaged
     ? path.join(process.resourcesPath, 'icon.png')
-    : path.join(__dirname, '..', '..', '..', 'docs', 'images', 'icon.png');
+    : path.join(__dirname, '..', '..', 'build', 'icon.png');
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 18, height: 18 });
   if (trayIcon.isEmpty()) throw new Error(`Tray icon could not be loaded from ${iconPath}.`);
   tray = new Tray(trayIcon);
@@ -223,7 +231,7 @@ function updateTray() {
 
 function handleNativeEvent(event) {
   if (!sessions) return;
-  if(event.type==='note'){if(!recordingShortcut)openNotetaker().catch(error=>broadcastDiagnostic(error.message));return;}
+  if(event.type==='note'){if(!recordingShortcut)noteHotkey().catch(error=>broadcastDiagnostic(error.message));return;}
   if (recordingShortcut && ['down','up','lock','escape','secure'].includes(event.type)) return;
   if (services?.active() && ['down','up','lock','escape','secure'].includes(event.type)) return;
   if (event.hwnd && ['down', 'up', 'lock', 'escape', 'secure'].includes(event.type)) lastTarget = event;
@@ -242,6 +250,13 @@ function handleNativeEvent(event) {
   }
 }
 
+// The note hotkey toggles a meeting: press to open the Notetaker, press again to stop the recording.
+async function noteHotkey() {
+  const action = require('./meeting-hud').noteHotkeyAction(services?.manager.state.state);
+  if (action === 'stop') return services.manager.stop();
+  if (action === 'ignore') return;
+  return openNotetaker();
+}
 async function openNotetaker() {
   if (services?.manager.active) return services.panel.open(services.manager.active.id);
   if (sessions.current || ['processing','inserting'].includes(sessions.state)) throw Error('Rond eerst je dictatie af.');
@@ -261,8 +276,15 @@ function pasteLastTranscript() {
   nativeHelper.paste(0);
 }
 
+// The overlaid native window buttons cannot read CSS; recolour them with the theme.
+function applyTitleBarTheme() {
+  if (!mainWindow || mainWindow.isDestroyed() || typeof mainWindow.setTitleBarOverlay !== 'function') return;
+  const dark = storage.settings.theme === 'dark' || (storage.settings.theme !== 'light' && nativeTheme.shouldUseDarkColors);
+  try { mainWindow.setTitleBarOverlay({ color: '#00000000', symbolColor: dark ? '#f5f2fa' : '#1b1226', height: 40 }); } catch { /* not supported on this platform */ }
+}
+
 function publicSettings() {
-  return { ...storage.settings, hasApiKey: Boolean(storage.apiKey()) };
+  return { ...storage.settings, hasApiKey: Boolean(storage.apiKey()), hasElevenLabsKey: Boolean(storage.elevenLabsKey()) };
 }
 
 function registerIpc() {
@@ -287,6 +309,7 @@ function registerIpc() {
     keys.validateGroups(keys.fromSettings(merged),keys.notesFromSettings(merged));
     const next = storage.updateSettings({ ...clean, showIdleIndicator: true });
     nativeTheme.themeSource = next.theme;
+    applyTitleBarTheme();
     if (!recordingShortcut && (patch.hotkeys !== undefined || patch.hotkey !== undefined || patch.noteHotkeys !== undefined)) nativeHelper.configure(require('../renderer/hotkeys').fromSettings(next),require('../renderer/hotkeys').notesFromSettings(next));
     app.setLoginItemSettings({ openAtLogin: next.launchAtLogin, path: app.getPath('exe') });
     updateTray();
@@ -318,6 +341,18 @@ function registerIpc() {
     }
   });
   handle('api-key:clear', () => { storage.clearApiKey(); return { ok: true }; });
+  handle('elevenlabs-key:save', async (_event, key) => {
+    const clean = String(key || '').trim();
+    if (clean.length < 20 || clean.length > 256) return { ok: false, message: 'Vul een geldige ElevenLabs API-key in.' };
+    try {
+      await validateElevenLabsKey(clean);
+      storage.saveElevenLabsKey(clean);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: normalizeElevenLabsError(error).message };
+    }
+  });
+  handle('elevenlabs-key:clear', () => { storage.clearElevenLabsKey(); return { ok: true }; });
   handle('history:list', (_event, query) => ({ records: storage.listHistory(String(query || '')), stats: storage.stats() }));
   handle('history:delete', (_event, id) => { storage.deleteRecord(String(id)); return true; });
   handle('history:retry', async (_event, id) => { await sessions.retry(String(id)); return true; });
@@ -345,6 +380,7 @@ function registerIpc() {
   });
   handle('dictation:stop', () => sessions.finish());
   handle('dictation:cancel', () => sessions.cancel(), true);
+  handle('dictation:undo-cancel', () => sessions.undoCancel(), true);
   handle('dictation:paste-last', () => pasteLastTranscript(), true);
   ipcMain.on('audio:status',(event,payload)=>{if(event.sender!==mainWindow.webContents||event.senderFrame!==event.sender.mainFrame)return;if(payload?.status==='ready')sessions.captureReady(payload.id);else if(payload?.status==='stopped')sessions.captureStopped(payload.id);else if(payload?.status==='stop-error')sessions.captureStopped(payload.id,false);else if(payload?.status==='error')sessions.captureFailed(payload.id);});
   ipcMain.on('audio:chunk', (event, payload) => {
@@ -418,15 +454,6 @@ async function runCaptureSuite() {
     await pause(220);
     mainWindow.show();
     mainWindow.focus();
-    const smokeWindowHandle = browserWindowHandle(mainWindow);
-    await mainWindow.webContents.executeJavaScript("document.getElementById('dictionary-term').focus()", true);
-    await pause(120);
-    const pasteOutcome = await sessions.insert('TakkieAI Native Paste Test', smokeWindowHandle);
-    await pause(180);
-    const pastedValue = await mainWindow.webContents.executeJavaScript("document.getElementById('dictionary-term').value", true);
-    // The capture runner is deliberately backgrounded by CI/terminals, so Windows
-    // must reject this target instead of pasting into whatever currently has focus.
-    flowResults.nativeTargetGuard = pasteOutcome === 'target-changed' && pastedValue === '';
     await mainWindow.webContents.executeJavaScript(`(() => {
       const input = document.getElementById('dictionary-term');
       input.value = 'TakkieAI Smoke Test';
@@ -500,11 +527,6 @@ async function captureWindow(window, output) {
 
 function pause(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-function browserWindowHandle(window) {
-  const value = window.getNativeWindowHandle();
-  return Number(value.length >= 8 ? value.readBigUInt64LE(0) : value.readUInt32LE(0));
 }
 
 

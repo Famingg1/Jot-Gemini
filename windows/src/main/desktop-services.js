@@ -44,7 +44,7 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
     captureWindow.webContents.send('meeting-capture:command', { ...payload, type, requestId });
     });}finally{if((type==='stop'||type==='abort')&&processAudioId===payload.id){processAudio?.stop();processAudio=null;processAudioId=null;}}
   } };
-  const manager = new MeetingManager({ storage: meetings, getApiKey: () => storage.apiKey(), getSettings: () => storage.settings, capture });
+  const manager = new MeetingManager({ storage: meetings, getApiKey: () => storage.apiKey(), getElevenLabsKey: () => storage.elevenLabsKey(), getSettings: () => storage.settings, capture });
   const panel = require('./meeting-window').createMeetingPanel({ manager, meetings, hardenWebContents });
   const calendar = new CalendarService({ root: storage.root, safeStorage, getSettings: () => storage.settings, openExternal: url => shell.openExternal(url), onState: value => send('calendar:state', value) });
   const connectors = new ConnectorService({ root: storage.root, safeStorage });
@@ -59,7 +59,19 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
     else if (value.state === 'idle') hudWindow.showInactive();
     updateTray();
   });
-  manager.on('progress', value => send('meeting:progress', value));
+  // After stopping, the HUD follows the transcriber for that meeting until it is ready or failed.
+  let hudMeetingId = null, hudIdleTimer = null;
+  manager.on('state', value => { if (value.id && ['finalizing', 'saved'].includes(value.state)) hudMeetingId = value.id; });
+  const hudState = require('./meeting-hud');
+  manager.on('progress', value => {
+    send('meeting:progress', value);
+    if (!value || value.id !== hudMeetingId || manager.active) return;
+    const next = hudState.progressHudState(value);
+    if (!next) return;
+    clearTimeout(hudIdleTimer);
+    hudWindow.webContents.send('hud:state', next); hudWindow.showInactive();
+    if (next.holdMs) { hudIdleTimer = setTimeout(() => { hudMeetingId = null; if (!manager.active && !sessions.current && sessions.state === 'idle') hudWindow.webContents.send('hud:state', { state: 'idle' }); }, next.holdMs); hudIdleTimer.unref?.(); }
+  });
   manager.on('visual-level',value=>hudWindow.webContents.send('hud:level',value));
   manager.on('levels', value => { send('meeting:levels', value); hudWindow.webContents.send('meeting:levels', value); });
   const handle = (name, callback, allowHud = false) => ipcMain.handle(name, (event, ...args) => {
@@ -134,7 +146,14 @@ async function createDesktopServices({ storage, mainWindow, hudWindow, sessions,
       if (extra || !/^\d{1,6}$/.test(index)) return new Response(null, { status: 404 });
       const file = meetings.audioPath(id, source, Number(index));
       const data = await fs.promises.readFile(file);
-      return new Response(data, { headers: { 'Content-Type': 'audio/wav', 'Content-Length': String(data.length), 'Cache-Control': 'no-store' } });
+      // Honour byte ranges so the audio element can seek anywhere in a segment, not only within what it buffered.
+      const range = /^bytes=(d*)-(d*)$/.exec(request.headers.get('range') || '');
+      if (range) {
+        const start = range[1] ? Number(range[1]) : 0, end = range[2] ? Math.min(Number(range[2]), data.length - 1) : data.length - 1;
+        if (start > end || start >= data.length) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${data.length}` } });
+        return new Response(data.subarray(start, end + 1), { status: 206, headers: { 'Content-Type': 'audio/wav', 'Content-Length': String(end - start + 1), 'Content-Range': `bytes ${start}-${end}/${data.length}`, 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-store' } });
+      }
+      return new Response(data, { headers: { 'Content-Type': 'audio/wav', 'Content-Length': String(data.length), 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-store' } });
     } catch { return new Response(null, { status: 404 }); }
   });
   handle('calendar:status', () => calendar.status());

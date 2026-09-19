@@ -12,7 +12,7 @@
       // The compact header always represents the current month, independently of the picker.
       const now=new Date(),current=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       const currentData=data.month===current?data:await window.jot.monthlyUsage(current);if(request!==revision)return;
-      button.textContent='Deze maand · '+duration(currentData.dictationMs+currentData.meetingMs);
+      button.textContent='Deze maand · '+duration(currentData.dictationMs+currentData.meetingMs)+' · ≈ '+money(currentData.cost?.usd||0);button.title='Geschatte API-kosten deze maand voor dictatie en meetings (transcriptie), geen factuur.';
       month.replaceChildren();for(const value of data.months){const option=document.createElement('option');option.value=value;option.textContent=label(value);month.append(option);}month.value=data.month;
       content.replaceChildren();const list=document.createElement('dl');
       const count=n=>`${n} ${n===1?'opname':'opnames'}`;

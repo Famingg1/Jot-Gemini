@@ -7,8 +7,9 @@
   <title>TakkieAI</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="flow.css">
-<link rel="stylesheet" href="takkie-brand.css"></head>
-<body>
+<link rel="stylesheet" href="takkie-brand.css"><link rel="stylesheet" href="glass.css"></head>
+<body class="glass">
+  <div class="titlebar"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><span class="name">TakkieAI</span></div>
   <div id="app" class="app-shell" aria-busy="true">
     <aside class="sidebar" aria-label="Hoofdnavigatie">
       <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>TakkieAI</span></div>
@@ -105,7 +106,7 @@
 
   <dialog id="history-dialog" class="record-dialog"><button class="icon-button dialog-close" aria-label="Sluiten">×</button><div id="history-dialog-content"></div></dialog>
   <div id="toast-region" class="toast-region" aria-live="polite"></div>
-  <script src="speakers.js"></script><script src="flow.js"></script>
+  <script src="speakers.js"></script><script src="meeting-player.js"></script><script src="flow.js"></script>
   <script src="monthly-usage.js"></script>
   <link rel="stylesheet" href="shortcuts.css">
   <script src="hotkeys.js"></script>

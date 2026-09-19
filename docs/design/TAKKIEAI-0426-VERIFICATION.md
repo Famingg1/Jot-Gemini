@@ -1,0 +1,9 @@
+# TakkieAI 0.4.26 — F9 stopt de meeting en de HUD wacht op het transcript
+
+**F9 als schakelaar.** De notitiesneltoets (standaard F9) opende bij een lopende meeting alleen het meetingpaneel; stoppen kon alleen via de knop. Nu geldt (`noteHotkey` in `windows/src/main/index.js`, beslissing in `windows/src/main/meeting-hud.js`): geen meeting actief, dan opent F9 de Notetaker zoals voorheen; opname actief of gepauzeerd, dan stopt F9 de opname en start de verwerking; tijdens voorbereiden of afronden doet F9 niets, zodat een dubbele druk geen tweede actie uitlokt. De HUD-knop en het traymenu zijn ongewijzigd.
+
+**HUD volgt de verwerking.** Na het stoppen sprong de HUD direct terug naar idle, terwijl transcriptie en samenvatting nog liepen (bij lange meetings een minuut of langer). In `windows/src/main/desktop-services.js` onthoudt de service welke meeting zojuist is gestopt en zet de voortgangsberichten van de transcriber om in HUD-staten: "Meeting transcriberen… 2/5" (bloknummers alleen bij meer dan één blok), "Samenvatting maken…", daarna 3 seconden "Meeting klaar" of 6 seconden "Meeting bewaard, verwerken mislukt", en dan idle, mits er intussen geen dictatie of nieuwe meeting is gestart. De HUD wordt daarbij zichtbaar gehouden. Staat automatisch transcriberen uit, dan komt er geen voortgang en blijft het gedrag zoals het was.
+
+Verificatie: lint en 90 tests slagen, waaronder twee nieuwe in `windows/test/meeting-hud.test.js` (sneltoetsbeslissing per meetingstaat; voortgang naar HUD-staat inclusief bloknummers, klaar, mislukt en genegeerde events). NSIS-installer gebouwd als `windows/dist/TakkieAI-0.4.26-Windows-x64.exe` en lokaal geïnstalleerd over 0.4.25 heen.
+
+Niet getest: een echte meeting van begin tot eind via F9 met de nieuwe HUD-berichten; handmatig te controleren: F9, praten, F9, en de HUD moet "Meeting transcriberen…" tonen tot "Meeting klaar".

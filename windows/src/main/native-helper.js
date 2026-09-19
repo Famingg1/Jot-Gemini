@@ -77,12 +77,14 @@ class NativeHelper extends EventEmitter {
     this.send(`NOTE ${require('../renderer/hotkeys').serialize(noteHotkeys)}`);
   }
 
-  typeText(text, expectedWindow) {
+  typeText(text) {
     const encoded = Buffer.from(text, 'utf8').toString('base64');
-    this.send(`TYPE ${Number(expectedWindow) || 0} ${encoded}`);
+    this.send(`TYPE ${encoded}`);
   }
 
-  paste(expectedWindow = 0) { return this.send(`PASTE ${Number(expectedWindow) || 0}`); }
+  paste() { return this.send('PASTE'); }
+
+  setDictating(active) { return this.send(`ACTIVE ${active ? 1 : 0}`); }
 
   stop() {
     if (!this.process) return;

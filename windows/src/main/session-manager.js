@@ -5,16 +5,19 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const { pcmToWav } = require('./wav');
+const { compressSilence } = require('./silence');
 const { transcribe, normalizeError } = require('./gemini');
 const { canTransition } = require('./state');
 const { codingSettings, expandSnippets, applyWritingStyle } = require('./text-tools');
 
 class SessionManager extends EventEmitter {
-  constructor({ storage, nativeHelper, clipboard }) {
+  constructor({ storage, nativeHelper, clipboard, undoWindowMs = 3000 }) {
     super();
     this.storage = storage;
     this.nativeHelper = nativeHelper;
     this.clipboard = clipboard;
+    this.undoWindowMs = undoWindowMs;
+    this.pendingCancel = null;
     this.current = null;
     this.state = 'idle';
     this.locked = false;
@@ -40,7 +43,9 @@ class SessionManager extends EventEmitter {
   }
 
   begin(target = {}) {
-    if (this.current) return false;
+    // An accidental second press must not start a new recording while the last one is still in flight.
+    if (this.current || this.state === 'processing' || this.state === 'inserting') return false;
+    this.finalizeCancel();
     const id = crypto.randomUUID();
     const directory = this.storage.sessionDirectory(id);
     const meta = {
@@ -69,7 +74,7 @@ class SessionManager extends EventEmitter {
 
   captureReady(id){if(this.current?.id!==id||this.current.finishing||this.state!=='starting')return;clearTimeout(this.current.startTimer);this.setState(this.locked?'locked':'listening',{ready:true});}
   captureStopped(id,ok=true){if(this.current?.id===id)this.current.stopped?.(ok);}
-  captureFailed(id){if(this.current?.id!==id)return;this.cancel().then(()=>{if(!this.current){this.setState('error',{message:'Microfoon kon niet starten. Probeer opnieuw.'});this.returnToIdle();}});}
+  captureFailed(id){if(this.current?.id!==id)return;this.cancel({ undoable: false }).then(()=>{if(!this.current){this.setState('error',{message:'Microfoon kon niet starten. Probeer opnieuw.'});this.returnToIdle();}});}
 
   appendChunk(chunk, sampleRate = 16000) {
     if (!this.current || this.current.meta.status !== 'recording') return;
@@ -88,9 +93,8 @@ class SessionManager extends EventEmitter {
     if(this.state!=='starting')this.setState('locked');
   }
 
-  async finish() {
-    if (!this.current || this.current.finishing) return;
-    const session = this.current;
+  // Stops capture, waits for the renderer to confirm the last audio block and returns the raw PCM.
+  async stopCapture(session) {
     session.finishing = true;
     this.locked = false;
     clearTimeout(session.startTimer);
@@ -98,6 +102,13 @@ class SessionManager extends EventEmitter {
     if (this.current === session) this.current = null;
     const recovery = path.join(session.directory, 'audio.pcm');
     const pcm = fs.existsSync(recovery) ? fs.readFileSync(recovery) : Buffer.alloc(0);
+    return { flushed, recovery, pcm };
+  }
+
+  async finish() {
+    if (!this.current || this.current.finishing) return;
+    const session = this.current;
+    const { flushed, recovery, pcm } = await this.stopCapture(session);
     const durationSeconds = pcm.length / 2 / session.meta.sampleRate;
     session.meta.durationSeconds = durationSeconds;
     session.meta.status = 'recorded';
@@ -119,30 +130,67 @@ class SessionManager extends EventEmitter {
     await this.process(session);
   }
 
-  async cancel() {
+  async cancel({ undoable = true } = {}) {
     if (!this.current || this.current.finishing) return;
     const session = this.current;
-    this.current = null;
-    this.locked = false;
-    clearTimeout(session.startTimer);this.emit('recording', { action: 'stop',id:session.id });
-    const durationSeconds = (Date.now() - session.started) / 1000;
-    session.meta.durationSeconds = durationSeconds;
+    const { flushed, recovery, pcm } = await this.stopCapture(session);
+    session.meta.durationSeconds = (Date.now() - session.started) / 1000;
     session.meta.status = 'cancelled';
+    const usable = undoable && flushed && pcm.length >= session.meta.sampleRate * 2 * 0.25;
+    if (usable) {
+      // Keep the audio ready so an accidental Escape can still be transcribed within the undo window.
+      fs.writeFileSync(path.join(session.directory, 'audio.wav'), pcmToWav(pcm, session.meta.sampleRate));
+      fs.unlinkSync(recovery);
+      this.storage.writeMeta(session.directory, session.meta);
+      const timer = setTimeout(() => this.finalizeCancel(), this.undoWindowMs);
+      timer.unref?.();
+      this.pendingCancel = { session, timer };
+      this.setState('cancelled', { undoable: true });
+      return;
+    }
     this.storage.writeMeta(session.directory, session.meta);
-    if (durationSeconds < 10) this.storage.deleteRecord(session.id);
+    if (session.meta.durationSeconds < 10) this.storage.deleteRecord(session.id);
     this.setState('cancelled');
     this.returnToIdle(250);
+  }
+
+  // Closes the undo window: applies the normal cancel outcome and releases the HUD.
+  finalizeCancel() {
+    const pending = this.pendingCancel;
+    if (!pending) return;
+    this.pendingCancel = null;
+    clearTimeout(pending.timer);
+    if (pending.session.meta.durationSeconds < 10) this.storage.deleteRecord(pending.session.id);
+    else this.emit('history-changed');
+    if (this.state === 'cancelled') this.setState('idle');
+  }
+
+  async undoCancel() {
+    const pending = this.pendingCancel;
+    if (!pending || this.current) return false;
+    this.pendingCancel = null;
+    clearTimeout(pending.timer);
+    const session = pending.session;
+    session.meta.status = 'recorded';
+    session.meta.errorCode = '';
+    session.meta.errorMessage = '';
+    this.storage.writeMeta(session.directory, session.meta);
+    if (!this.setState('processing')) return false;
+    await this.process(session);
+    return true;
   }
 
   async process(session) {
     session.meta.status = 'transcribing';
     this.storage.writeMeta(session.directory, session.meta);
+    const upload = this.prepareUpload(session);
     try {
       const transcript = await transcribe({
         apiKey: this.storage.apiKey(),
-        audioPath: path.join(session.directory, 'audio.wav'),
+        audioPath: upload.path,
         settings: codingSettings(this.storage.settings),
-        onRequest: model => this.storage.usage?.audio(model,session.meta.durationSeconds*1000)
+        onRequest: model => this.storage.usage?.audio(model, upload.ms),
+        onUsage: (model, usage) => this.storage.usage?.settle(model, usage, upload.ms)
       });
       session.meta.rawTranscript = transcript;
       let edited = applyReplacements(transcript, this.storage.settings.replacements);
@@ -160,7 +208,7 @@ class SessionManager extends EventEmitter {
         return;
       }
       this.setState('inserting');
-      const outcome = await this.insert(session.meta.finalTranscript, session.meta.targetWindow);
+      const outcome = await this.insert(session.meta.finalTranscript);
       if (outcome === 'ok') {
         this.setState('success', { words: countWords(session.meta.finalTranscript) });
       } else {
@@ -177,17 +225,40 @@ class SessionManager extends EventEmitter {
       this.emit('history-changed');
       this.setState(normalized.code === 'network' ? 'offline' : 'error', { message: normalized.message, sessionId: session.id });
       this.returnToIdle(6000);
+    } finally {
+      if (upload.temporary) fs.rmSync(upload.path, { force: true });
     }
   }
 
-  async insert(text, expectedWindow) {
+  // Dictation only: thinking pauses are shortened before upload so they cost no transcription
+  // minutes. The original audio.wav stays untouched for playback and retry.
+  prepareUpload(session) {
+    const original = path.join(session.directory, 'audio.wav');
+    const fallback = { path: original, ms: session.meta.durationSeconds * 1000, temporary: false };
+    try {
+      const wav = fs.readFileSync(original);
+      const sampleRate = wav.readUInt32LE(24) || session.meta.sampleRate || 16000;
+      const { pcm, removedMs } = compressSilence(wav.subarray(44), sampleRate);
+      if (removedMs < 500) return fallback;
+      const target = path.join(session.directory, 'upload.wav');
+      fs.writeFileSync(target, pcmToWav(pcm, sampleRate));
+      session.meta.uploadedSeconds = pcm.length / 2 / sampleRate;
+      this.storage.writeMeta(session.directory, session.meta);
+      return { path: target, ms: session.meta.uploadedSeconds * 1000, temporary: true };
+    } catch (error) {
+      this.emit('diagnostic', `Stiltes niet ingekort: ${error.message}`);
+      return fallback;
+    }
+  }
+
+  async insert(text) {
     const previousClipboard = snapshotClipboard(this.clipboard);
     this.clipboard.writeText(text);
     // Let Windows publish the clipboard update before synthesizing Ctrl+V.
     await new Promise((resolve) => setTimeout(resolve, 45));
     const outcome = await new Promise((resolve) => {
       this.insertResolver = resolve;
-      if (this.nativeHelper.paste(expectedWindow) === false) {
+      if (this.nativeHelper.paste() === false) {
         this.insertResolver = null;
         resolve('helper-unavailable');
         return;

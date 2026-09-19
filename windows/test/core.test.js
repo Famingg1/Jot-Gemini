@@ -117,17 +117,17 @@ test('interrupted PCM is recovered into retryable WAV history', () => {
   }
 });
 
-test('automatic paste targets the original window and preserves the clipboard', async () => {
+test('automatic paste goes to the current focus and preserves the clipboard', async () => {
   const nativeHelper = new EventEmitter();
-  nativeHelper.paste = (expectedWindow) => {
-    nativeHelper.expectedWindow = expectedWindow;
-    setImmediate(() => nativeHelper.emit('event', { type: 'insert', app: 'ok', hwnd: expectedWindow }));
+  nativeHelper.paste = (...args) => {
+    nativeHelper.pasteArgs = args;
+    setImmediate(() => nativeHelper.emit('event', { type: 'insert', app: 'ok', hwnd: 9001 }));
   };
   const clipboard = createFakeClipboard('Bestaande inhoud');
   const manager = new SessionManager({ storage: {}, nativeHelper, clipboard });
-  const outcome = await manager.insert('Nieuw transcript', 4242);
+  const outcome = await manager.insert('Nieuw transcript');
   assert.equal(outcome, 'ok');
-  assert.equal(nativeHelper.expectedWindow, 4242);
+  assert.deepEqual(nativeHelper.pasteArgs, []);
   assert.equal(clipboard.readText(), 'Nieuw transcript');
 
   const snapshot = snapshotClipboard(clipboard);
@@ -151,3 +151,20 @@ function createFakeClipboard(initialText) {
     clear: () => { data = { text: '', html: '', rtf: '' }; }
   };
 }
+
+test('settings survive a UTF-8 byte order mark and a corrupt file is backed up before defaults apply', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jot-settings-bom-'));
+  try {
+    const safe = { isEncryptionAvailable: () => false };
+    fs.writeFileSync(path.join(root, 'settings.json'), '\uFEFF' + JSON.stringify({ meetingModel: 'scribe_v2', hotkeys: [['MetaLeft', 'ControlLeft']] }));
+    const storage = new JotStorage(root, safe);
+    assert.equal(storage.settings.meetingModel, 'scribe_v2');
+    assert.deepEqual(storage.settings.hotkeys, [['MetaLeft', 'ControlLeft']]);
+    fs.writeFileSync(path.join(root, 'settings.json'), '{ not json');
+    const broken = new JotStorage(root, safe);
+    assert.equal(broken.settings.meetingModel, 'gemini-3.5-transcribe');
+    assert.ok(fs.readdirSync(root).some(name => name.startsWith('settings.json.corrupt-')), 'corrupt settings are kept as a backup');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

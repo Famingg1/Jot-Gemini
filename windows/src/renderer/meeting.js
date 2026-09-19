@@ -18,14 +18,15 @@ async function refresh() {
   const value = await request('get');
   const switched = meeting?.id !== value.id; meeting = value;
   $('title').textContent = value.title;
-  $('detected-call').hidden=!value.detectedProvider||!['recording','paused'].includes(value.state);$('detected-call').textContent=({meet:'Google Meet',teams:'Teams',zoom:'Zoom',whatsapp:'WhatsApp'}[value.detectedProvider]||'Meeting')+' gedetecteerd — opname gestart';
+  $('detected-call').hidden=!value.detectedProvider||!['recording','paused'].includes(value.state);$('detected-call').textContent=({meet:'Google Meet',teams:'Teams',zoom:'Zoom',whatsapp:'WhatsApp'}[value.detectedProvider]||'Meeting')+' gedetecteerd, opname gestart';
   if (switched || (!dirty && document.activeElement !== $('notes'))) $('notes').value = value.notes;
   const recording = ['recording','paused'].includes(value.state);
   $('pause').hidden = !recording; $('stop').hidden = !recording;
   $('pause').textContent = value.state === 'paused' ? 'Hervatten' : 'Pauzeren';
   $('generate').hidden = recording || !['saved','ready'].includes(value.state) || !value.manifest.sources.mix?.samples || Boolean(value.summary && !value.error);
   $('generate').textContent = value.error ? 'Opnieuw verwerken' : 'Samenvatting maken';
-  $('status').textContent = ({recording:'● Opname actief',paused:'Opname gepauzeerd',finalizing:'Audio opslaan…',saved:'Audio lokaal opgeslagen',transcribing:'Transcript maken…',summarizing:'Samenvatting maken…',ready:'Lokaal opgeslagen'})[value.state] || 'Even wachten…';
+  $('status').textContent = ({recording:'Opname actief',paused:'Opname gepauzeerd',finalizing:'Audio opslaan…',saved:'Audio lokaal opgeslagen',transcribing:'Transcript maken…',summarizing:'Samenvatting maken…',ready:'Verwerkt en lokaal bewaard'})[value.state] || 'Even wachten…';
+  $('status').classList.toggle('live', value.state === 'recording');
   if (value.error) fail(Error(value.error.message || String(value.error))); else if (!dirty) $('error').hidden = true;
   $('transcript').replaceChildren();
   const segments=recording?[]:value.transcript.segments;
@@ -46,5 +47,5 @@ $('pause').onclick = () => act(meeting?.state === 'paused' ? 'resume' : 'pause')
 $('stop').onclick = () => act('stop'); $('generate').onclick = () => act('retry');
 window.meetingPanel.onChanged(() => refresh().catch(fail));
 window.meetingPanel.onClose(async () => { try { await window.flushMeetingNotes(); await request('hide'); } catch(error) { fail(error); } });
-window.meetingPanel.onLevels(value => { if (meeting?.state === 'recording') $('status').textContent = '● Opname actief · '+Math.floor(value.durationMs/60000)+':'+String(Math.floor(value.durationMs/1000)%60).padStart(2,'0'); });
+window.meetingPanel.onLevels(value => { if (meeting?.state === 'recording') $('status').textContent = 'Opname actief · '+Math.floor(value.durationMs/60000)+':'+String(Math.floor(value.durationMs/1000)%60).padStart(2,'0'); });
 refresh().catch(fail);

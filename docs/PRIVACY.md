@@ -23,7 +23,10 @@ The original dictation-only description below applies to macOS and the Windows d
 ## What leaves your machine (the complete list)
 
 1. **The audio of each dictation** (FLAC on macOS, WAV on Windows), sent to
-   `generativelanguage.googleapis.com` for transcription.
+   `generativelanguage.googleapis.com` for transcription. On Windows, meeting
+   recordings go to `api.elevenlabs.io` instead when you select ElevenLabs
+   Scribe v2 as the meeting transcription model and add your own ElevenLabs key;
+   the meeting summary still goes to Google.
 2. **Your dictionary terms**, alongside that audio. The transcription model uses
    them to bias what it hears, which is why names and jargon come out spelled
    right as you speak rather than being corrected afterwards. Only the correct

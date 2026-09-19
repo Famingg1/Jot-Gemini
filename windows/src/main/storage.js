@@ -19,7 +19,7 @@ const defaults = Object.freeze({
   language: 'auto',
   microphoneId: 'default',
   audioRetentionDays: 7,
-  theme: 'light',
+  theme: 'dark',
   dictionary: [],
   replacements: [],
   endpoint: 'https://generativelanguage.googleapis.com/v1beta',
@@ -56,6 +56,7 @@ class JotStorage {
     this.root = root;
     this.settingsFile = path.join(root, 'settings.json');
     this.secretFile = path.join(root, 'gemini-key.bin');
+    this.elevenLabsSecretFile = path.join(root, 'elevenlabs-key.bin');
     this.recordingsRoot = path.join(root, 'recordings');
     this.safeStorage = safeStorage;
     fs.mkdirSync(this.recordingsRoot, { recursive: true });
@@ -65,11 +66,16 @@ class JotStorage {
   }
 
   readSettings() {
+    let text = null;
+    try { text = fs.readFileSync(this.settingsFile, 'utf8'); } catch { return { ...defaults }; }
     try {
-      const parsed = JSON.parse(fs.readFileSync(this.settingsFile, 'utf8'));
+      // Tolerate a UTF-8 byte order mark from editors and PowerShell.
+      const parsed = JSON.parse(text.replace(/^﻿/, ''));
       if (parsed.meetingAudioFilterVersion !== 1) { parsed.meetingAudioApp = 'desktop-filtered'; parsed.meetingAudioFilterVersion = 1; }
       return { ...defaults, ...parsed };
     } catch {
+      // Never let a corrupt file silently become defaults: keep a copy next to it before it is overwritten.
+      try { fs.copyFileSync(this.settingsFile, this.settingsFile + '.corrupt-' + Date.now() + '.bak'); } catch { /* best effort */ }
       return { ...defaults };
     }
   }
@@ -100,6 +106,25 @@ class JotStorage {
 
   clearApiKey() {
     if (fs.existsSync(this.secretFile)) fs.unlinkSync(this.secretFile);
+  }
+
+  saveElevenLabsKey(key) {
+    if (!this.safeStorage.isEncryptionAvailable()) throw new Error('Windows credential encryption is unavailable.');
+    fs.mkdirSync(this.root, { recursive: true });
+    fs.writeFileSync(this.elevenLabsSecretFile, this.safeStorage.encryptString(key.trim()));
+  }
+
+  elevenLabsKey() {
+    try {
+      if (!this.safeStorage.isEncryptionAvailable()) return '';
+      return this.safeStorage.decryptString(fs.readFileSync(this.elevenLabsSecretFile));
+    } catch {
+      return '';
+    }
+  }
+
+  clearElevenLabsKey() {
+    if (fs.existsSync(this.elevenLabsSecretFile)) fs.unlinkSync(this.elevenLabsSecretFile);
   }
 
   sessionDirectory(id) {

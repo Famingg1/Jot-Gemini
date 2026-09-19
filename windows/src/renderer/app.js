@@ -176,7 +176,7 @@ function openRecord(record) {
   actions.append(actionButton('Exporteren', 'secondary-button', () => window.jot.exportHistory(record.id)));
   if (record.audioAvailable && ['failed', 'queuedForRetry'].includes(record.status)) actions.append(actionButton('Opnieuw proberen', 'primary-button', async (button) => { button.disabled = true; await window.jot.retryHistory(record.id); byId('history-dialog').close(); }));
   actions.append(actionButton('Verwijderen', 'secondary-button danger-button', async () => {
-    if (!confirm('Dit dictaat en de bijbehorende audio definitief verwijderen?')) return;
+    if (!await confirmDialog('Dit dictaat en de bijbehorende audio definitief verwijderen?')) return;
     await window.jot.deleteHistory(record.id); byId('history-dialog').close(); await refreshHistory();
   }));
   target.append(title, meta, transcript, actions);

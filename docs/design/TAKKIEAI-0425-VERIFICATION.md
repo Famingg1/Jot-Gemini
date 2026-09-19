@@ -1,0 +1,15 @@
+# TakkieAI 0.4.25 — Frost en Middernacht, themaschakelaar, icoon, kosten in beeld, geen dubbele opname
+
+**Twee glasthema's.** Uit vijftien varianten in `docs/design/glass-variants.html` koos de gebruiker 13 (Frost), 14 (zwart glas met blauw) en 9 (Middernacht). `windows/src/renderer/glass.css` heeft nu twee complete tokensets: donker is Middernacht (bijna zwart glas op 80 procent, lila gloed bovenin, lila-paarse knoppen) en licht is Frost (wit glas op 80 procent, roze en paarse gloed, donkere tekst, roze-paarse knoppen). Alle regels lezen uitsluitend tokens (glas, randen, dialogen, toasts, scrollbalken, keuzelijst-opties), zodat beide thema's dezelfde structuur delen. Variant 14 verschilt van Middernacht alleen in accentkleur (blauw in plaats van lila) en is niet apart opgenomen; het lila-accent sluit aan bij het icoon en het meetingpaneel.
+
+**Themaschakelaar.** In de sidebar staat onder Help een knop "Donker" of "Licht" (het huidige thema) die wisselt tussen `theme: 'dark'` en `'light'` via de bestaande instellingenflow; de keuzelijst in Instellingen (Windows volgen, Licht, Donker) blijft werken. `flowTheme` in `flow.js` zet `data-theme` op het effectieve thema en werkt het label bij. De main-process herkleurt de overlay van de native vensterknoppen mee (`applyTitleBarTheme` in `index.js`: lichte symbolen bij donker, donkere bij licht), ook als Windows zelf van thema wisselt. Standaardthema voor nieuwe installaties is donker; bestaande instellingen blijven staan.
+
+**App-icoon.** Nieuw `windows/build/icon.png` (512px): het drie-balkjes-merkteken (blauw, lila, blauw) op een donkerpaars afgerond vlak, gemaakt met System.Drawing. `package.json` wijst het Windows-icoon en de meegeleverde `icon.png` (tray) naar dit bestand; in ontwikkelmodus gebruikt de tray hetzelfde pad. Het macOS-icoon in `docs/images/icon.png` is ongewijzigd.
+
+**Kosten in beeld.** De knop rechtsboven toont naast de opnametijd van deze maand nu ook de geschatte API-kosten, bijvoorbeeld "Deze maand · 0 u 15 min · ≈ US$ 0,08", met een tooltip dat het een schatting voor dictatie en meetings is en geen factuur. Het bedrag komt uit de bestaande kostenmeter (`usage.js`, Gemini op tokens, Scribe v2 op lijstprijs) en staat in dollars, omdat beide leveranciers in dollars factureren.
+
+**Geen dubbele opname.** `SessionManager.begin` weigert een nieuwe opname zolang de vorige nog in `processing` of `inserting` staat, zodat een per ongeluk tweede druk op de sneltoets (of de HUD-knop) tijdens het transcriberen niets doet. Test toegevoegd in `windows/test/cancel-undo.test.js`.
+
+Verificatie: lint en 88 tests slagen. NSIS-installer gebouwd als `windows/dist/TakkieAI-0.4.25-Windows-x64.exe` en lokaal geïnstalleerd over 0.4.24 heen; het echte venster is in beide thema's vastgelegd (`windows/screenshots/main-frost.png` en `windows/screenshots/main-midnight.png`).
+
+Niet getest: het meetingpaneel volgt het thema nog niet (blijft Middernacht-donker), en de onboarding is alleen in het donkere thema bekeken.

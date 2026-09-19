@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TakkieAI stijlvarianten</title>
+<style>
+  :root { font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; font-size: 14px; color: #f5f2fa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; padding: 24px 28px 80px; background: #14101c; }
+  body[data-desk="kleur"] { background: radial-gradient(60% 50% at 15% 20%, #7b3fc2 0%, transparent 60%), radial-gradient(50% 45% at 85% 25%, #00a9ff 0%, transparent 60%), radial-gradient(60% 50% at 60% 90%, #ff6fae 0%, transparent 60%), radial-gradient(40% 40% at 25% 80%, #34d399 0%, transparent 60%), #1a1030; }
+  body[data-desk="licht"] { background: radial-gradient(60% 50% at 20% 25%, #d8c6ff 0%, transparent 60%), radial-gradient(50% 45% at 80% 20%, #bfe6ff 0%, transparent 60%), radial-gradient(60% 50% at 60% 90%, #ffd0e6 0%, transparent 60%), #eef0f6; color: #1b1226; }
+  body[data-desk="donker"] { background: radial-gradient(50% 40% at 30% 30%, #2a1d44 0%, transparent 60%), #0e0b14; }
+  body[data-desk="foto"] { background: linear-gradient(160deg, #0f2a44 0%, #1c4d6b 30%, #c98a4b 62%, #f0c27b 78%, #3c2a54 100%); }
+  body[data-desk="licht"] .top p, body[data-desk="licht"] h1 { color: #1b1226; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { margin: 0; font: 600 22px/1.2 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; letter-spacing: -.01em; }
+  .top p { margin: 4px 0 0; color: rgba(245,242,250,.7); }
+  .desk { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.15); }
+  .desk button { border: 0; border-radius: 999px; padding: 7px 14px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+  .desk button.on { background: rgba(255,255,255,.2); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 28px; }
+  .item h2 { margin: 0 0 8px; font: 600 15px/1.3 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; display: flex; align-items: baseline; gap: 10px; }
+  .item h2 span { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.2); font-size: 13px; }
+  .item p { margin: 0 0 10px; font-size: 13px; color: rgba(245,242,250,.72); }
+  body[data-desk="licht"] .item p { color: rgba(27,18,38,.72); }
+  body[data-desk="licht"] .item h2 span { background: rgba(0,0,0,.08); border-color: rgba(0,0,0,.15); }
+
+  /* One window mock, styled entirely by custom properties. */
+  .win { position: relative; height: 420px; overflow: hidden; border-radius: 14px; border: 1px solid var(--win-border); background: var(--win); backdrop-filter: blur(var(--blur)) saturate(140%); -webkit-backdrop-filter: blur(var(--blur)) saturate(140%); color: var(--ink); box-shadow: 0 18px 50px rgba(0,0,0,.28); font-size: 11px; display: grid; grid-template-rows: 30px 1fr; }
+  .win::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--glow); }
+  .tb { position: relative; display: flex; align-items: center; gap: 7px; padding: 0 12px; font-size: 9.5px; color: var(--ink-soft); background: var(--tb); }
+  .tb .mark { display: inline-flex; gap: 2px; align-items: flex-end; height: 9px; } .tb .mark i { width: 3px; border-radius: 2px; background: #00a9ff; } .tb .mark i:first-child { height: 6px; } .tb .mark i:nth-child(2) { height: 9px; background: var(--accent); } .tb .mark i:last-child { height: 4px; }
+  .tb .name { color: var(--ink); font-weight: 600; } .tb .ctl { margin-left: auto; display: flex; gap: 14px; opacity: .8; letter-spacing: 3px; }
+  .shell { position: relative; display: grid; grid-template-columns: 138px 1fr; gap: 6px; padding: 4px 8px 8px 0; min-height: 0; }
+  .side { padding: 4px 8px 6px 12px; display: flex; flex-direction: column; background: var(--side); border-right: 1px solid var(--side-border); }
+  .nav { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 7px; color: var(--ink-soft); margin: 1px 0; }
+  .nav i { width: 9px; height: 9px; border-radius: 3px; border: 1.2px solid currentColor; opacity: .8; }
+  .nav.on { background: var(--nav-on); color: var(--nav-on-ink); box-shadow: inset 0 0 0 1px var(--nav-on-border); font-weight: 600; }
+  .status { margin-top: auto; font-size: 9px; color: var(--ink-soft); padding: 6px 8px; }
+  .local { padding: 8px; border-radius: 8px; background: var(--card); border: 1px solid var(--card-border); font-size: 9px; color: var(--ink); margin: 0 0 6px; }
+  .local small { display: block; margin-top: 3px; color: var(--ink-soft); }
+  .main { min-height: 0; overflow: hidden; border-radius: 12px; border: 1px solid var(--content-border); background: var(--content); padding: 14px 16px; display: grid; grid-template-columns: 1fr 112px; gap: 12px; align-content: start; }
+  .bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+  .bar h3 { margin: 0; white-space: nowrap; font: 600 15px/1.2 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; color: var(--ink); letter-spacing: -.01em; flex: 1; }
+  .chip { padding: 5px 8px; border-radius: 7px; border: 1px solid var(--btn-border); background: var(--btn); color: var(--ink); font-size: 9px; white-space: nowrap; }
+  .chip.primary { background: var(--primary); border-color: transparent; color: var(--on-primary); font-weight: 600; }
+  .search, .day, .row { grid-column: 1; }
+  .search { padding: 8px 10px; border-radius: 9px; background: var(--field); border: 1px solid var(--field-border); color: var(--ink-soft); }
+  .stats { grid-column: 2; grid-row: 2 / span 5; padding: 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 10px; }
+  .stats b { display: block; font: 600 16px/1.1 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; color: var(--ink); } .stats span { color: var(--ink-soft); font-size: 9px; }
+  .day { font-size: 9px; font-weight: 600; color: var(--ink-soft); margin-top: 2px; }
+  .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 9px 11px; border-radius: 9px; background: var(--card); border: 1px solid var(--card-border); }
+  .row p { margin: 0 0 3px; color: var(--ink); line-height: 1.45; } .row small { color: var(--ink-soft); font-size: 9px; }
+  .pill { padding: 3px 7px; border-radius: 999px; background: var(--pill); color: var(--ink-soft); font-size: 8.5px; }
+  .win.dark { --ink: #f5f2fa; --ink-soft: rgba(245,242,250,.66); --on-primary: #fff; }
+  .win.light { --ink: #1b1226; --ink-soft: rgba(27,18,38,.64); --on-primary: #fff; }
+</style>
+</head>
+<body data-desk="kleur">
+  <div class="top">
+    <div><h1>TakkieAI stijlvarianten voor de homepagina</h1><p>Vijftien versies van hetzelfde scherm. Wissel de achtergrond erachter om te zien hoe het glas reageert op je bureaublad. Noem het nummer dat je wilt.</p></div>
+    <div class="desk" role="group" aria-label="Achtergrond"><button class="on" data-desk="kleur">Kleurrijk</button><button data-desk="foto">Foto-achtig</button><button data-desk="licht">Licht</button><button data-desk="donker">Donker</button></div>
+  </div>
+  <div class="grid" id="grid"></div>
+
+<template id="mock">
+  <div class="win">
+    <div class="tb"><span class="mark"><i></i><i></i><i></i></span><span class="name">TakkieAI</span><span class="ctl">— ▢ ✕</span></div>
+    <div class="shell">
+      <div class="side">
+        <div class="nav on"><i></i>Dictation</div><div class="nav"><i></i>Notetaker</div><div class="nav"><i></i>Insights</div><div class="nav"><i></i>Woordenboek</div><div class="nav"><i></i>Snippets</div><div class="nav"><i></i>Style</div><div class="nav"><i></i>Transforms</div><div class="nav"><i></i>Scratchpad</div>
+        <div class="status">● Klaar</div>
+        <div class="local">● Op deze computer<small>Jouw opnames. Jouw API-key.</small></div>
+        <div class="nav"><i></i>Instellingen</div>
+      </div>
+      <div class="main">
+        <div class="bar"><h3>Welkom terug, Fahim</h3><span class="chip">Rechter Ctrl</span><span class="chip primary">Start dictatie</span><span class="chip">Deze maand · 0 u 15 min</span></div>
+        <div class="search">Zoek in je dictaten</div>
+        <div class="stats"><div><b>1.216</b><span>woorden</span></div><div><b>28</b><span>dictaten</span></div><div><b>116</b><span>gem. WPM</span></div></div>
+        <div class="day">zaterdag 19 september 2026</div>
+        <div class="row"><div><p>Kan je glassmorphism doen, wit doorzichtig met een beetje paars?</p><small>WindowsTerminal · 04:37 · 24 sec</small></div><span class="pill">Klaar</span></div>
+        <div class="row"><div><p>Wat is de WER van Whisper?</p><small>Spotify · 04:36 · 4 sec</small></div><span class="pill">Klaar</span></div>
+        <div class="row"><div><p>Werkt AssemblyAI beter dan Gemini 3.5 Transcribe in de benchmarks?</p><small>WindowsTerminal · 04:30 · 14 sec</small></div><span class="pill">Klaar</span></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+const lilac = 'linear-gradient(135deg,#c496ee,#7b3fc2)';
+const purple = 'linear-gradient(135deg,#8b5cf6,#5a298b)';
+const V = [
+  { n: 'Donker glas (huidig)', d: 'Zoals 0.4.24 nu is: donkere tint, glazen kaarten, lila accent.', mode: 'dark', t: { win: 'rgba(19,14,28,.74)', 'win-border': 'rgba(255,255,255,.14)', blur: '24px', glow: 'radial-gradient(110% 60% at 0% 0%,rgba(163,84,232,.2),transparent 60%),radial-gradient(70% 55% at 100% 100%,rgba(0,169,255,.13),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.16)', 'nav-on-ink': '#f5f2fa', 'nav-on-border': 'rgba(255,255,255,.22)', content: 'rgba(255,255,255,.06)', 'content-border': 'rgba(255,255,255,.12)', card: 'rgba(255,255,255,.06)', 'card-border': 'rgba(255,255,255,.12)', field: 'rgba(255,255,255,.1)', 'field-border': 'rgba(255,255,255,.22)', btn: 'rgba(255,255,255,.1)', 'btn-border': 'rgba(255,255,255,.22)', primary: lilac, pill: 'rgba(255,255,255,.12)', accent: '#c496ee' } },
+  { n: 'Wit glas, paars', d: 'Jouw vraag: wit doorzichtig met een vleugje paars. Donkere tekst, lila-paarse knoppen.', mode: 'light', t: { win: 'rgba(255,255,255,.62)', 'win-border': 'rgba(255,255,255,.7)', blur: '28px', glow: 'radial-gradient(90% 60% at 0% 0%,rgba(163,84,232,.22),transparent 60%),radial-gradient(60% 50% at 100% 100%,rgba(0,169,255,.12),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(123,63,194,.14)', 'nav-on-ink': '#4a1f7a', 'nav-on-border': 'rgba(123,63,194,.25)', content: 'rgba(255,255,255,.55)', 'content-border': 'rgba(255,255,255,.8)', card: 'rgba(255,255,255,.6)', 'card-border': 'rgba(90,41,139,.12)', field: 'rgba(255,255,255,.7)', 'field-border': 'rgba(90,41,139,.16)', btn: 'rgba(255,255,255,.7)', 'btn-border': 'rgba(90,41,139,.18)', primary: lilac, pill: 'rgba(90,41,139,.1)', accent: '#8b5cf6' } },
+  { n: 'Wit glas, koel blauw', d: 'Zelfde witte glas, maar met de brand-blauwe gloed in plaats van paars.', mode: 'light', t: { win: 'rgba(255,255,255,.66)', 'win-border': 'rgba(255,255,255,.75)', blur: '26px', glow: 'radial-gradient(80% 60% at 100% 0%,rgba(0,169,255,.2),transparent 60%),radial-gradient(60% 50% at 0% 100%,rgba(163,84,232,.12),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(0,140,220,.14)', 'nav-on-ink': '#0b4f78', 'nav-on-border': 'rgba(0,140,220,.25)', content: 'rgba(255,255,255,.58)', 'content-border': 'rgba(255,255,255,.85)', card: 'rgba(255,255,255,.62)', 'card-border': 'rgba(20,60,110,.12)', field: 'rgba(255,255,255,.72)', 'field-border': 'rgba(20,60,110,.16)', btn: 'rgba(255,255,255,.72)', 'btn-border': 'rgba(20,60,110,.18)', primary: 'linear-gradient(135deg,#38bdf8,#5a298b)', pill: 'rgba(20,60,110,.1)', accent: '#00a9ff' } },
+  { n: 'Lila mist', d: 'Lavendel-getint glas, witte kaarten, zacht en rustig.', mode: 'light', t: { win: 'rgba(232,220,250,.72)', 'win-border': 'rgba(255,255,255,.7)', blur: '30px', glow: 'radial-gradient(80% 50% at 50% 0%,rgba(255,255,255,.4),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.75)', 'nav-on-ink': '#4a1f7a', 'nav-on-border': 'rgba(90,41,139,.18)', content: 'rgba(255,255,255,.5)', 'content-border': 'rgba(255,255,255,.9)', card: 'rgba(255,255,255,.75)', 'card-border': 'rgba(90,41,139,.1)', field: 'rgba(255,255,255,.8)', 'field-border': 'rgba(90,41,139,.14)', btn: 'rgba(255,255,255,.8)', 'btn-border': 'rgba(90,41,139,.16)', primary: purple, pill: 'rgba(90,41,139,.1)', accent: '#7b3fc2' } },
+  { n: 'Aurora licht', d: 'Pastel-verloop in het venster zelf (paars, blauw, roze), witte frosted kaarten.', mode: 'light', t: { win: 'linear-gradient(135deg,rgba(230,215,255,.85),rgba(210,235,255,.85) 50%,rgba(255,220,240,.85))', 'win-border': 'rgba(255,255,255,.8)', blur: '18px', glow: 'none', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.8)', 'nav-on-ink': '#4a1f7a', 'nav-on-border': 'rgba(255,255,255,1)', content: 'rgba(255,255,255,.55)', 'content-border': 'rgba(255,255,255,1)', card: 'rgba(255,255,255,.7)', 'card-border': 'rgba(255,255,255,1)', field: 'rgba(255,255,255,.8)', 'field-border': 'rgba(255,255,255,1)', btn: 'rgba(255,255,255,.8)', 'btn-border': 'rgba(90,41,139,.12)', primary: lilac, pill: 'rgba(90,41,139,.1)', accent: '#a354e8' } },
+  { n: 'Aurora donker', d: 'Diep paars-blauw verloop in het venster, glazen kaarten, felle lila knoppen.', mode: 'dark', t: { win: 'linear-gradient(135deg,rgba(45,20,80,.85),rgba(20,30,70,.85) 60%,rgba(60,20,60,.85))', 'win-border': 'rgba(255,255,255,.18)', blur: '20px', glow: 'radial-gradient(60% 50% at 20% 0%,rgba(196,150,238,.25),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.16)', 'nav-on-ink': '#fff', 'nav-on-border': 'rgba(255,255,255,.25)', content: 'rgba(255,255,255,.07)', 'content-border': 'rgba(255,255,255,.14)', card: 'rgba(255,255,255,.08)', 'card-border': 'rgba(255,255,255,.14)', field: 'rgba(255,255,255,.1)', 'field-border': 'rgba(255,255,255,.22)', btn: 'rgba(255,255,255,.1)', 'btn-border': 'rgba(255,255,255,.22)', primary: lilac, pill: 'rgba(255,255,255,.14)', accent: '#c496ee' } },
+  { n: 'Wit glas, paarse kop', d: 'Wit glas met een paars verloop in de titelbalk en sidebar, lichte inhoud.', mode: 'light', t: { win: 'rgba(255,255,255,.7)', 'win-border': 'rgba(255,255,255,.8)', blur: '26px', glow: 'none', tb: 'linear-gradient(90deg,rgba(90,41,139,.9),rgba(123,63,194,.75))', side: 'linear-gradient(180deg,rgba(90,41,139,.85),rgba(123,63,194,.6))', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.22)', 'nav-on-ink': '#fff', 'nav-on-border': 'rgba(255,255,255,.35)', content: 'rgba(255,255,255,.6)', 'content-border': 'rgba(255,255,255,.9)', card: 'rgba(255,255,255,.7)', 'card-border': 'rgba(90,41,139,.12)', field: 'rgba(255,255,255,.8)', 'field-border': 'rgba(90,41,139,.16)', btn: 'rgba(255,255,255,.8)', 'btn-border': 'rgba(90,41,139,.18)', primary: purple, pill: 'rgba(90,41,139,.1)', accent: '#c496ee' } },
+  { n: 'Paars verloop', d: 'Vol paars-naar-blauw verloop als venster, witte glazen kaarten erop. Meest uitgesproken.', mode: 'dark', t: { win: 'linear-gradient(135deg,rgba(90,41,139,.92),rgba(0,120,200,.85))', 'win-border': 'rgba(255,255,255,.25)', blur: '16px', glow: 'radial-gradient(50% 40% at 100% 0%,rgba(255,255,255,.18),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.22)', 'nav-on-ink': '#fff', 'nav-on-border': 'rgba(255,255,255,.35)', content: 'rgba(255,255,255,.12)', 'content-border': 'rgba(255,255,255,.25)', card: 'rgba(255,255,255,.14)', 'card-border': 'rgba(255,255,255,.25)', field: 'rgba(255,255,255,.16)', 'field-border': 'rgba(255,255,255,.3)', btn: 'rgba(255,255,255,.16)', 'btn-border': 'rgba(255,255,255,.3)', primary: 'linear-gradient(135deg,#fff,#e9d8ff)', pill: 'rgba(255,255,255,.2)', accent: '#e9d8ff' } },
+  { n: 'Middernacht', d: 'Bijna zwart glas, lila gloed bovenin, veel contrast.', mode: 'dark', t: { win: 'rgba(8,6,14,.8)', 'win-border': 'rgba(255,255,255,.12)', blur: '30px', glow: 'radial-gradient(70% 45% at 30% 0%,rgba(196,150,238,.28),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(196,150,238,.18)', 'nav-on-ink': '#e9d8ff', 'nav-on-border': 'rgba(196,150,238,.3)', content: 'rgba(255,255,255,.05)', 'content-border': 'rgba(255,255,255,.1)', card: 'rgba(255,255,255,.05)', 'card-border': 'rgba(255,255,255,.1)', field: 'rgba(255,255,255,.08)', 'field-border': 'rgba(255,255,255,.18)', btn: 'rgba(255,255,255,.08)', 'btn-border': 'rgba(255,255,255,.18)', primary: lilac, pill: 'rgba(255,255,255,.1)', accent: '#c496ee' } },
+  { n: 'Crème en paars', d: 'De oude lichte look (crème, geen glas) maar met paars in plaats van zwart.', mode: 'light', t: { win: '#f6f4f9', 'win-border': '#e6e1ef', blur: '0px', glow: 'none', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': '#ece5f6', 'nav-on-ink': '#4a1f7a', 'nav-on-border': 'transparent', content: '#fff', 'content-border': '#e9e4f0', card: '#f6f4f9', 'card-border': '#e6e1ef', field: '#fff', 'field-border': '#e6e1ef', btn: '#fff', 'btn-border': '#e6e1ef', primary: 'linear-gradient(135deg,#5a298b,#7b3fc2)', pill: '#ece5f6', accent: '#5a298b' } },
+  { n: 'Wit glas, donkere sidebar', d: 'Lichte glazen inhoud, donkere glazen sidebar en titelbalk voor contrast.', mode: 'light', t: { win: 'rgba(255,255,255,.62)', 'win-border': 'rgba(255,255,255,.7)', blur: '26px', glow: 'none', tb: 'rgba(19,14,28,.85)', side: 'rgba(19,14,28,.85)', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.16)', 'nav-on-ink': '#fff', 'nav-on-border': 'rgba(255,255,255,.22)', content: 'rgba(255,255,255,.6)', 'content-border': 'rgba(255,255,255,.9)', card: 'rgba(255,255,255,.7)', 'card-border': 'rgba(90,41,139,.12)', field: 'rgba(255,255,255,.8)', 'field-border': 'rgba(90,41,139,.16)', btn: 'rgba(255,255,255,.8)', 'btn-border': 'rgba(90,41,139,.18)', primary: lilac, pill: 'rgba(90,41,139,.1)', accent: '#c496ee' } },
+  { n: 'Donker glas, witte inhoud', d: 'Donker glas rondom, maar de inhoudskaart is wit en dekkend: maximale leesbaarheid.', mode: 'dark', t: { win: 'rgba(19,14,28,.74)', 'win-border': 'rgba(255,255,255,.14)', blur: '24px', glow: 'radial-gradient(110% 60% at 0% 0%,rgba(163,84,232,.2),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.16)', 'nav-on-ink': '#f5f2fa', 'nav-on-border': 'rgba(255,255,255,.22)', content: '#ffffff', 'content-border': 'rgba(255,255,255,.9)', card: '#f6f4f9', 'card-border': '#e6e1ef', field: '#f6f4f9', 'field-border': '#e6e1ef', btn: '#fff', 'btn-border': '#e6e1ef', primary: lilac, pill: '#ece5f6', accent: '#c496ee' }, contentInk: 'light' },
+  { n: 'Frost', d: 'Heel licht wit glas (80 procent) met roze en paarse gloed. Het lichtste van de reeks.', mode: 'light', t: { win: 'rgba(255,255,255,.8)', 'win-border': 'rgba(255,255,255,.9)', blur: '34px', glow: 'radial-gradient(60% 45% at 90% 0%,rgba(255,111,174,.2),transparent 60%),radial-gradient(60% 45% at 0% 100%,rgba(163,84,232,.18),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(123,63,194,.12)', 'nav-on-ink': '#4a1f7a', 'nav-on-border': 'rgba(123,63,194,.22)', content: 'rgba(255,255,255,.5)', 'content-border': 'rgba(255,255,255,1)', card: 'rgba(255,255,255,.65)', 'card-border': 'rgba(90,41,139,.1)', field: 'rgba(255,255,255,.75)', 'field-border': 'rgba(90,41,139,.14)', btn: 'rgba(255,255,255,.75)', 'btn-border': 'rgba(90,41,139,.16)', primary: 'linear-gradient(135deg,#f0abfc,#7b3fc2)', pill: 'rgba(90,41,139,.1)', accent: '#a354e8' } },
+  { n: 'Zwart glas, blauw', d: 'Zwart glas met de brand-blauwe accentkleur in plaats van paars.', mode: 'dark', t: { win: 'rgba(6,8,12,.8)', 'win-border': 'rgba(255,255,255,.12)', blur: '28px', glow: 'radial-gradient(70% 45% at 80% 0%,rgba(0,169,255,.25),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(0,169,255,.18)', 'nav-on-ink': '#dff3ff', 'nav-on-border': 'rgba(0,169,255,.35)', content: 'rgba(255,255,255,.05)', 'content-border': 'rgba(255,255,255,.1)', card: 'rgba(255,255,255,.05)', 'card-border': 'rgba(255,255,255,.1)', field: 'rgba(255,255,255,.08)', 'field-border': 'rgba(255,255,255,.18)', btn: 'rgba(255,255,255,.08)', 'btn-border': 'rgba(255,255,255,.18)', primary: 'linear-gradient(135deg,#38bdf8,#0369a1)', pill: 'rgba(255,255,255,.1)', accent: '#00a9ff' } },
+  { n: 'Wit glas, paars, sterke blur', d: 'Wit glas op 50 procent met zware blur: het bureaublad schemert duidelijk door, tekst blijft donker.', mode: 'light', t: { win: 'rgba(255,255,255,.5)', 'win-border': 'rgba(255,255,255,.7)', blur: '40px', glow: 'radial-gradient(80% 50% at 0% 0%,rgba(163,84,232,.25),transparent 60%)', tb: 'transparent', side: 'transparent', 'side-border': 'transparent', 'nav-on': 'rgba(255,255,255,.7)', 'nav-on-ink': '#4a1f7a', 'nav-on-border': 'rgba(255,255,255,.9)', content: 'rgba(255,255,255,.45)', 'content-border': 'rgba(255,255,255,.85)', card: 'rgba(255,255,255,.6)', 'card-border': 'rgba(255,255,255,.9)', field: 'rgba(255,255,255,.7)', 'field-border': 'rgba(255,255,255,1)', btn: 'rgba(255,255,255,.7)', 'btn-border': 'rgba(90,41,139,.12)', primary: lilac, pill: 'rgba(90,41,139,.1)', accent: '#8b5cf6' } }
+];
+const grid = document.getElementById('grid'), tpl = document.getElementById('mock');
+V.forEach((v, i) => {
+  const item = document.createElement('div'); item.className = 'item';
+  const h = document.createElement('h2'); const num = document.createElement('span'); num.textContent = i + 1; h.append(num, document.createTextNode(v.n));
+  const p = document.createElement('p'); p.textContent = v.d;
+  const win = tpl.content.firstElementChild.cloneNode(true); win.classList.add(v.mode);
+  for (const [k, val] of Object.entries(v.t)) win.style.setProperty('--' + k, val);
+  if (v.contentInk === 'light') { const main = win.querySelector('.main'); main.style.setProperty('--ink', '#1b1226'); main.style.setProperty('--ink-soft', 'rgba(27,18,38,.64)'); }
+  item.append(h, p, win); grid.append(item);
+});
+for (const b of document.querySelectorAll('.desk button')) b.addEventListener('click', () => { document.body.dataset.desk = b.dataset.desk; for (const o of document.querySelectorAll('.desk button')) o.classList.toggle('on', o === b); });
+</script>
+</body>
+</html>

@@ -7,6 +7,7 @@ const timer = document.getElementById('timer');
 const cancelButton = document.getElementById('cancel');
 const finishButton = document.getElementById('finish');
 const pasteButton = document.getElementById('paste');
+const undoButton = document.getElementById('undo');
 const idleHit = document.getElementById('idle-hit');
 const bars = [...document.querySelectorAll('.wave i')];
 let state = 'idle';
@@ -18,7 +19,7 @@ let timerHandle;
 let readyTimer;
 
 const labels = {
-  starting:'Microfoon voorbereiden…',preparing:'Opname voorbereiden…',finalizing:'Audio opslaan…',recording: 'Meetingopname', paused: 'Gepauzeerd', idle: 'Dicteren', listening: '', locked: 'Handsfree', processing: 'Transcriberen…',
+  starting:'Microfoon voorbereiden…',preparing:'Opname voorbereiden…',finalizing:'Audio opslaan…',recording: 'Meetingopname', paused: 'Gepauzeerd', idle: 'Dicteren', listening: '', locked: '', processing: 'Transcriberen…',
   inserting: 'Invoegen…', success: 'Klaar', clipboard: 'Gekopieerd naar klembord',
   offline: 'Opname bewaard — wacht op verbinding', error: 'Opname bewaard in Geschiedenis', secure: 'Beveiligd veld — dictatie gepauzeerd', cancelled: 'Geannuleerd'
 };
@@ -30,9 +31,7 @@ function render(next) {
   if (next.mode === 'meeting' || next.meetingId || ['recording','paused'].includes(next.state)) meeting = next; else meeting = null;
   if (meeting && (meeting.id || meeting.meetingId) !== previousMeetingId) meetingDurationMs = Number.isFinite(next.durationMs) ? next.durationMs : 0;
   pill.setAttribute('aria-label', meeting ? 'TakkieAI meetingopname' : 'TakkieAI dictatie');
-  pill.title = meeting ? `${next.state === 'preparing'?'Opname wordt voorbereid':next.state === 'paused' ? 'Opname gepauzeerd' : 'Meeting wordt opgenomen'} \u00b7 Microfoon ${next.mic === false ? 'uit' : 'aan'} \u00b7 Computer ${next.system === false ? 'uit' : 'aan'}` : (labels[next.state] || 'TakkieAI');
   cancelButton.setAttribute('aria-label', meeting ? (next.state === 'paused' ? 'Opname hervatten' : 'Opname pauzeren') : 'Dictatie annuleren');
-  cancelButton.title = cancelButton.getAttribute('aria-label');
   pill.className = `pill ${state}${largeHud ? ' large' : ''}`;
   message.textContent = next.message || labels[state] || 'TakkieAI';
   if(next.ready||(state==='recording'&&previousState==='preparing')){pill.classList.add('ready');message.textContent='Spreek nu';readyTimer=setTimeout(()=>{pill.classList.remove('ready');message.textContent=labels[state]||'';},1100);}
@@ -40,6 +39,8 @@ function render(next) {
   const active = ['listening','locked','recording','paused'].includes(state);
   timer.hidden = !active;
   pasteButton.hidden = state !== 'clipboard';
+  undoButton.hidden = !(state === 'cancelled' && next.undoable);
+  pill.classList.toggle('undo', !undoButton.hidden);
   clearInterval(timerHandle);
   if (active) {
     if (!startedAt) startedAt = Date.now();
@@ -82,6 +83,7 @@ document.getElementById('note-hit').addEventListener('click', () => window.jot.h
 finishButton.addEventListener('click', () => meeting ? window.jot.stopMeeting(meeting.id || meeting.meetingId) : window.jot.hudStop());
 cancelButton.addEventListener('click', () => meeting ? (state === 'paused' ? window.jot.resumeMeeting() : window.jot.pauseMeeting()) : window.jot.cancelDictation());
 pasteButton.addEventListener('click', () => window.jot.pasteLast());
+undoButton.addEventListener('click', () => window.jot.undoCancel());
 
 window.jot.onHudState(render);
 let targetLevel=0,shownLevel=0,lastLevelAt=0;

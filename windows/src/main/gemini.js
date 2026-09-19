@@ -19,7 +19,7 @@ function normalizeError(error) {
   return { code: 'model', message: 'Gemini kon deze opname niet verwerken. De opname is lokaal bewaard.' };
 }
 
-async function transcribe({ apiKey, audioPath, settings, onRequest = () => {} }) {
+async function transcribe({ apiKey, audioPath, settings, onRequest = () => {}, onUsage = () => {} }) {
   if (!apiKey) throw Object.assign(new Error('Missing Gemini API key.'), { status: 401 });
   const { GoogleGenAI } = await import('@google/genai');
   const client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 180000 } });
@@ -52,6 +52,7 @@ async function transcribe({ apiKey, audioPath, settings, onRequest = () => {} })
       generation_config: { transcription_config: transcriptionConfig },
       store: false
     });
+    onUsage(settings.model || 'gemini-3.5-transcribe', response.usage || response.usageMetadata || null);
     const text = extractOutputText(response);
     if (!text) throw new Error('Gemini returned an empty transcript.');
     return text;

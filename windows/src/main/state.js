@@ -11,7 +11,7 @@ const allowed = Object.freeze({
   clipboard: ['idle', 'listening','starting'],
   offline: ['idle', 'listening', 'starting', 'processing'],
   error: ['idle', 'listening', 'starting', 'processing'],
-  cancelled: ['idle', 'listening','starting','error'],
+  cancelled: ['idle', 'listening','starting','error','processing'],
   secure: ['idle', 'listening', 'starting']
 });
 

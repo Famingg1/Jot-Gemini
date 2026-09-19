@@ -23,6 +23,7 @@ internal static class JotNativeHelper
     private static readonly ShortcutState noteShortcuts = new ShortcutState();
     private static readonly object shortcutGate = new object();
     private static bool hotkeyDown;
+    private static volatile bool dictating;
     private static IntPtr hook = IntPtr.Zero;
     private static LowLevelKeyboardProc callback = HookCallback;
 
@@ -99,9 +100,11 @@ internal static class JotNativeHelper
                     }
                 }
                 if (swallow) return (IntPtr)1;
-                if (down && key == VK_ESCAPE)
+                if (key == VK_ESCAPE)
                 {
-                    EmitForeground("escape");
+                    if (down) EmitForeground("escape");
+                    // While TakkieAI is recording, Escape belongs to the dictation only.
+                    if (dictating) return (IntPtr)1;
                 }
                 if (down && key == VK_SPACE && hotkeyDown)
                 {
@@ -127,36 +130,24 @@ internal static class JotNativeHelper
                     lock(shortcutGate) { shortcuts.Configure(parts[1]); hotkeyDown = false; }
                 }
                 else if(command=="NOTE"&&parts.Length>1){lock(shortcutGate){noteShortcuts.Configure(parts[1]);}}
-                else if (command == "TYPE" && parts.Length > 2)
+                else if (command == "ACTIVE" && parts.Length > 1)
                 {
-                    long expected;
-                    long.TryParse(parts[1], out expected);
-                    string text = Encoding.UTF8.GetString(Convert.FromBase64String(parts[2]));
+                    dictating = parts[1] == "1";
+                }
+                else if (command == "TYPE" && parts.Length > 1)
+                {
+                    // Always insert into whatever currently has focus.
+                    string text = Encoding.UTF8.GetString(Convert.FromBase64String(parts[1]));
                     long foreground = GetForegroundWindow().ToInt64();
-                    if (expected != 0 && foreground != expected)
-                    {
-                        Emit("insert", "target-changed", "", foreground);
-                    }
-                    else
-                    {
-                        bool ok = SendUnicode(text);
-                        Emit("insert", ok ? "ok" : "failed", "", foreground);
-                    }
+                    bool ok = SendUnicode(text);
+                    Emit("insert", ok ? "ok" : "failed", "", foreground);
                 }
                 else if (command == "PASTE")
                 {
-                    long expected = 0;
-                    if (parts.Length > 1) long.TryParse(parts[1], out expected);
+                    // Always paste into whatever currently has focus.
                     long foreground = GetForegroundWindow().ToInt64();
-                    if (expected != 0 && foreground != expected)
-                    {
-                        Emit("insert", "target-changed", "", foreground);
-                    }
-                    else
-                    {
-                        bool ok = SendChord(0x11, 0x56); // Ctrl+V
-                        Emit("insert", ok ? "ok" : "failed", "", foreground);
-                    }
+                    bool ok = SendChord(0x11, 0x56); // Ctrl+V
+                    Emit("insert", ok ? "ok" : "failed", "", foreground);
                 }
                 else if (command == "QUIT")
                 {

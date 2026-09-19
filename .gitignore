@@ -30,3 +30,10 @@ windows/screenshots/
 
 # Tool caches
 .impeccable/
+
+# Claude Code Playwright MCP output
+.playwright-mcp/
+
+# Windows app icon lives in windows/build (build/ is otherwise ignored)
+!windows/build/
+!windows/build/icon.png

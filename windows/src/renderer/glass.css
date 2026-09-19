@@ -1,0 +1,127 @@
+/* Glass theme for the main window, loaded last. Two looks over Windows 11 acrylic:
+   dark = "Middernacht" (near-black glass, lilac glow), light = "Frost" (white glass, pink and
+   purple glow). Everything below reads from these tokens; body.glass scopes the overrides. */
+:root, html[data-theme=dark] {
+  color-scheme: dark;
+  --ink: #f5f2fa; --ink-soft: rgba(245,242,250,.66); --ink-faint: rgba(245,242,250,.42);
+  --glass: rgba(255,255,255,.05); --glass-2: rgba(255,255,255,.09); --glass-3: rgba(255,255,255,.15);
+  --stroke: rgba(255,255,255,.1); --stroke-2: rgba(255,255,255,.2);
+  --accent: #c496ee; --accent-deep: #7b3fc2; --live: #00a9ff;
+  --shell: rgba(8,6,14,.8); --glow: radial-gradient(70% 45% at 30% 0%, rgba(196,150,238,.26), transparent 60%), radial-gradient(50% 40% at 100% 100%, rgba(0,169,255,.1), transparent 60%);
+  --nav-on: rgba(196,150,238,.18); --nav-on-ink: #e9d8ff; --nav-on-border: rgba(196,150,238,.3);
+  --primary-gradient: linear-gradient(135deg, #c496ee, #7b3fc2); --primary-hover-gradient: linear-gradient(135deg, #d4b0f4, #7b3fc2);
+  --dialog: rgba(16,11,26,.9); --toast: rgba(24,17,36,.94); --option: #1c1329; --knob: #fff;
+  --scroll: rgba(255,255,255,.16); --scroll-hover: rgba(255,255,255,.28);
+  --bg: transparent; --surface: var(--glass); --surface-2: var(--glass-2); --surface-3: var(--glass-3);
+  --outline: var(--stroke); --primary: var(--accent); --primary-hover: #d4b0f4; --primary-soft: rgba(196,150,238,.16); --on-primary: #1b0f2b;
+  --focus: var(--accent); --success: #6fe0b8; --warning: #ffcf6b; --error: #ffb4a8; --error-soft: rgba(120,30,20,.45);
+  --titlebar: 40px;
+}
+html[data-theme=light] {
+  color-scheme: light;
+  --ink: #1b1226; --ink-soft: rgba(27,18,38,.64); --ink-faint: rgba(27,18,38,.42);
+  --glass: rgba(255,255,255,.5); --glass-2: rgba(255,255,255,.66); --glass-3: rgba(255,255,255,.86);
+  --stroke: rgba(90,41,139,.1); --stroke-2: rgba(90,41,139,.2);
+  --accent: #a354e8; --accent-deep: #7b3fc2; --live: #00a9ff;
+  --shell: rgba(255,255,255,.8); --glow: radial-gradient(60% 45% at 90% 0%, rgba(255,111,174,.2), transparent 60%), radial-gradient(60% 45% at 0% 100%, rgba(163,84,232,.18), transparent 60%);
+  --nav-on: rgba(123,63,194,.12); --nav-on-ink: #4a1f7a; --nav-on-border: rgba(123,63,194,.22);
+  --primary-gradient: linear-gradient(135deg, #f0abfc, #7b3fc2); --primary-hover-gradient: linear-gradient(135deg, #f5c0ff, #6a34ad);
+  --dialog: rgba(255,255,255,.92); --toast: rgba(27,18,38,.94); --option: #ffffff; --knob: #fff;
+  --scroll: rgba(27,18,38,.18); --scroll-hover: rgba(27,18,38,.32);
+  --primary-hover: #b06ff0; --primary-soft: rgba(163,84,232,.14); --on-primary: #fff;
+  --success: #1f8f6a; --warning: #9a6b00; --error: #a63328; --error-soft: rgba(255,220,214,.7);
+}
+html[data-theme=light] .toast { color: #f5f2fa; }
+html { background: var(--shell); }
+.glass { margin: 0; background: var(--glow); color: var(--ink); }
+
+/* Title bar with the native window buttons overlaid on the right. */
+.titlebar { position: fixed; inset: 0 0 auto 0; z-index: 30; height: var(--titlebar); display: flex; align-items: center; gap: 10px; padding: 0 18px; padding-right: calc(100vw - env(titlebar-area-width, 100vw) + 12px); -webkit-app-region: drag; user-select: none; font-size: 12px; color: var(--ink-soft); }
+.titlebar .mark { display: inline-flex; gap: 3px; align-items: flex-end; height: 12px; }
+.titlebar .mark i { width: 4px; border-radius: 2px; background: var(--live); }
+.titlebar .mark i:first-child { height: 8px; } .titlebar .mark i:nth-child(2) { height: 12px; background: var(--accent); } .titlebar .mark i:last-child { height: 6px; }
+.titlebar .name { color: var(--ink); font-weight: 600; letter-spacing: .01em; }
+.glass .app-shell { padding: calc(var(--titlebar) + 6px) 12px 12px 0; min-height: 100vh; background: transparent; gap: 6px; }
+.glass .sidebar { background: transparent; border: 0; padding: 6px 12px 10px 16px; min-height: calc(100vh - var(--titlebar) - 18px); }
+.glass .brand { display: none; }
+.glass .nav-item { color: var(--ink-soft); border-radius: 10px; min-height: 38px; font-weight: 500; }
+.glass .nav-item:hover { background: var(--glass-2); color: var(--ink); }
+.glass .nav-item.is-active { background: var(--nav-on); color: var(--nav-on-ink); box-shadow: inset 0 0 0 1px var(--nav-on-border); }
+.glass .nav-icon, .glass .nav-item.is-active .nav-icon { color: inherit !important; }
+.glass .nav-label { color: var(--ink-faint); }
+.glass .local-card { background: var(--glass); border: 1px solid var(--stroke); color: var(--ink); }
+.glass .local-card small, .glass .sidebar-status { color: var(--ink-soft); }
+.glass .local-dot, .glass .status-dot { background: var(--success); }
+.glass .status-dot[data-state="listening"], .glass .status-dot[data-state="locked"] { background: var(--live); box-shadow: 0 0 0 4px rgba(0,169,255,.25); }
+.glass #theme-toggle .nav-icon { font-size: 16px; }
+
+/* The content area is the one big glass card. */
+.glass .content { background: var(--glass); border: 1px solid var(--stroke); border-radius: 20px; color: var(--ink); }
+.glass h1, .glass h2, .glass h3, .glass .topbar h1, .glass .stats-row strong, .glass .empty-state h2, .glass .meeting-intro h2, .glass .settings-body > h2, .glass .quiet-empty h3, .glass .onboarding-step h2, .glass .insight-card h2, .glass .style-card h3, .glass .meeting-title { font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; color: var(--ink); }
+.glass .stats-row strong, .glass .empty-state h2, .glass .meeting-intro h2, .glass .settings-body > h2 { font-weight: 600; letter-spacing: -.01em; }
+.glass p, .glass .muted, .glass .history-meta, .glass .day-heading, .glass .meeting-row small, .glass .meeting-status, .glass .calendar-card p, .glass .calendar-card h3, .glass .settings-group p, .glass .tool-item p, .glass .insight-card p, .glass .insight-card > span, .glass .style-card p, .glass .quiet-empty, .glass .quiet-empty p, .glass .onboarding-step p, .glass #new-meeting-dialog p, .glass .version-label, .glass .fine-print, .glass .loading-line, .glass .activity-weekdays, .glass #settings-version, .glass .eyebrow, .glass .audio-time { color: var(--ink-soft); }
+.glass .day-heading { letter-spacing: .04em; text-transform: none; font-weight: 600; font-size: 12px; }
+
+/* Surfaces inside the card: one level of glass, hairline strokes. */
+.glass .stats-row, .glass .history-row, .glass .empty-state, .glass .meeting-row, .glass .calendar-card, .glass .insight-card, .glass .tool-item, .glass .style-card, .glass .notes-editor, .glass .transcript-block, .glass .processing-line, .glass .error-state, .glass .recording-strip, .glass .settings-group, .glass .settings-rail, .glass .key-hint, .glass kbd, .glass pre, .glass .shortcut-demo, .glass .warning-banner, .glass .helper-warning, .glass .audio-player, .glass .privacy-summary, .glass .note-symbol, .glass .history-status, .glass .token, .glass .flow-search, .glass .search-field { background: var(--glass); border-color: var(--stroke); color: var(--ink); box-shadow: none; }
+.glass .history-row { border: 1px solid var(--stroke); border-radius: 12px; margin-bottom: 8px; }
+.glass .history-row:hover, .glass .meeting-row:hover, .glass .calendar-event:hover { background: var(--glass-2); }
+.glass .history-row p { color: var(--ink); }
+.glass .empty-wave i, .glass .usage-bar, .glass .mic-test div, .glass .onboarding-progress i.is-active { background: var(--accent); }
+.glass .settings-group { border-bottom: 1px solid var(--stroke); }
+.glass .settings-group:first-child { border-radius: 14px 14px 0 0; } .glass .settings-group:last-child { border-radius: 0 0 14px 14px; }
+.glass .settings-group h2, .glass .settings-group h3, .glass .tool-item h3, .glass .section-line h3, .glass .notes-heading h3 { color: var(--ink); }
+.glass .meeting-intro { background: linear-gradient(135deg, rgba(123,63,194,.6), rgba(0,169,255,.3)); border: 1px solid var(--stroke-2); color: #f5f2fa; }
+.glass .meeting-intro h2 { color: #f5f2fa; } .glass .meeting-intro p { color: rgba(245,242,250,.82); }
+.glass .meeting-intro .primary-button { background: #fff; color: #2b1544; border-color: #fff; }
+.glass .style-card.selected, .glass .recording-strip { background: var(--primary-soft); border-color: rgba(163,84,232,.5); }
+.glass .notice { background: rgba(0,169,255,.12); border: 1px solid rgba(0,169,255,.3); color: var(--ink); }
+.glass .notice.is-error, .glass .error-state p, .glass .error-text, .glass .danger-button { color: var(--error); }
+.glass .notice.is-error { background: var(--error-soft); border-color: rgba(255,150,130,.35); }
+.glass .detail-tabs, .glass .notes-heading, .glass .transcript-row, .glass .calendar-event, .glass .replacement-row, .glass .connector-tools details, .glass .insight-card hr { border-color: var(--stroke); }
+.glass .detail-tabs .is-active { border-bottom-color: var(--accent); color: var(--ink); }
+.glass .transcript-row button, .glass .text-button, .glass .speaker-name { color: var(--accent); }
+.glass .text-button:hover { background: var(--primary-soft); }
+.glass .activity-cell { background: var(--glass-3); }
+.glass .activity-cell.intensity-1 { background: rgba(163,84,232,.3); } .glass .activity-cell.intensity-2 { background: rgba(163,84,232,.5); } .glass .activity-cell.intensity-3 { background: rgba(163,84,232,.75); } .glass .activity-cell.intensity-4 { background: var(--accent); }
+.glass .usage-arc { border-color: var(--accent); }
+.glass .shield-icon, .glass .step-icon { background: var(--primary-soft); color: var(--accent); }
+.glass .helper-warning, .glass .helper-sidebar-warning { color: var(--warning); }
+.glass .helper-warning { background: rgba(255,207,107,.12); border-color: rgba(255,207,107,.35); }
+
+/* Controls. */
+.glass .primary-button { background: var(--primary-gradient); border: 1px solid transparent; color: #fff; font-weight: 600; }
+.glass .primary-button:hover { background: var(--primary-hover-gradient); }
+.glass .secondary-button, .glass input, .glass select, .glass textarea, .glass .audio-box select, .glass #meeting-title, .glass .tool-form input, .glass .tool-form textarea, .glass .tool-form select, .glass .settings-group select, .glass .settings-group input:not([type=checkbox]) { background: var(--glass-2) !important; border: 1px solid var(--stroke-2) !important; color: var(--ink) !important; border-radius: 10px; }
+.glass .secondary-button:hover { background: var(--glass-3) !important; }
+.glass input::placeholder, .glass textarea::placeholder, .glass .search-field input::placeholder { color: var(--ink-faint); }
+.glass .search-field input, .glass .flow-search input, .glass .notes-heading input, .glass .meeting-title, .glass .speaker-name { background: transparent !important; border: 0 !important; }
+.glass .meeting-title:hover { border-bottom: 1px solid var(--stroke-2) !important; border-radius: 0; }
+.glass select option { background: var(--option); color: var(--ink); }
+.glass .switch span { background: var(--glass-3); } .glass .switch input:checked + span { background: var(--accent); } .glass .switch span::after { background: var(--knob); }
+.glass input[type=checkbox], .glass input[type=radio], .glass .source-options input, .glass .settings-group input[type=checkbox], .glass progress, .glass input[type=range] { accent-color: var(--accent); }
+.glass .audio-toggle { background: var(--primary-gradient); color: #fff; }
+.glass .icon-button, .glass .settings-close, .glass .dialog-close { color: var(--ink-soft); } .glass .icon-button:hover { background: var(--glass-2); color: var(--ink); }
+.glass .token button:hover { background: var(--glass-3); }
+.glass .loading-line::before { border-color: var(--stroke-2); border-top-color: var(--accent); }
+
+/* Dialogs, onboarding and toasts float as thicker glass. */
+.glass dialog, .glass .onboarding-panel { background: var(--dialog); border: 1px solid var(--stroke-2); color: var(--ink); box-shadow: 0 24px 80px rgba(0,0,0,.4); backdrop-filter: blur(24px) saturate(140%); }
+.glass dialog::backdrop { background: rgba(8,5,14,.5); }
+.glass .onboarding { background: rgba(8,5,14,.5); }
+.glass .settings-rail { background: var(--glass); border-right: 1px solid var(--stroke); }
+.glass .toast { background: var(--toast); border: 1px solid var(--stroke-2); }
+.glass .hero-pill { background: #080908; border: 1px solid var(--stroke); } .glass .hero-pill span { background: var(--live) !important; }
+
+.glass .confirm-dialog { width: min(440px, calc(100vw - 48px)); padding: 26px 26px 22px; }
+.glass .confirm-message { margin: 0 0 4px; font-size: 15px; line-height: 1.5; color: var(--ink); }
+.glass .confirm-dialog .dialog-actions { justify-content: flex-end; }
+.glass .danger-confirm { background: linear-gradient(135deg, #ff8a78, #b3261e) !important; color: #fff !important; }
+
+/* Scrollbars. */
+.glass ::-webkit-scrollbar { width: 10px; height: 10px; }
+.glass ::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+.glass ::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); background-clip: padding-box; }
+.glass ::-webkit-scrollbar-track { background: transparent; }
+
+@media (max-width: 700px) { .glass .app-shell { padding: var(--titlebar) 0 0; } .glass .sidebar { min-height: auto; } .glass .content { border-radius: 18px 18px 0 0; } }
