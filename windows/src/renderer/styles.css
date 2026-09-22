@@ -248,3 +248,14 @@ dialog { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
+
+/* Update banner: top-left in the sidebar, one click restarts into the downloaded version. */
+.update-banner { display: flex; flex-direction: column; align-items: stretch; gap: 8px; width: 100%; margin: 0 0 12px; padding: 12px; border: 1px solid var(--nav-on-border, var(--primary)); border-radius: 12px; background: var(--nav-on, var(--primary-soft)); color: var(--ink); text-align: left; cursor: pointer; transition: background 160ms var(--ease); }
+.update-banner:hover { background: var(--primary-soft); }
+.update-banner:disabled { opacity: .7; cursor: default; }
+.update-title { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; }
+.update-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--accent, var(--primary)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent, var(--primary)), transparent 75%); animation: update-pulse 1.8s ease-in-out infinite; }
+@keyframes update-pulse { 50% { box-shadow: 0 0 0 7px transparent; } }
+.update-banner small { font-size: 11px; line-height: 1.45; color: var(--ink-soft); }
+.update-action { display: block; padding: 7px 10px; border-radius: 999px; background: var(--primary-gradient, var(--primary)); color: #fff; font-size: 12px; font-weight: 600; text-align: center; }
+@media (max-width: 700px) { .update-banner { margin: 0 0 8px; } .update-banner small { display: none; } }

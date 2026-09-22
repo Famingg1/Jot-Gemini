@@ -344,8 +344,22 @@ function debounce(callback, wait) {
   let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => callback(...args), wait); };
 }
 
+function showUpdate(version) {
+  const banner = byId('update-banner');
+  if (!version) { banner.hidden = true; return; }
+  byId('update-version').textContent = version;
+  banner.hidden = false;
+}
+
 async function initialize() {
   bindEvents();
+  byId('update-banner').addEventListener('click', async () => {
+    const banner = byId('update-banner'); banner.disabled = true; banner.querySelector('.update-action').textContent = 'Bijwerken…';
+    const started = await window.jot.installUpdate?.();
+    if (!started) { banner.disabled = false; banner.querySelector('.update-action').textContent = 'Opnieuw starten en bijwerken'; showNotice('De update kon niet worden gestart. Sluit TakkieAI af en start opnieuw op.', true); }
+  });
+  window.jot.onUpdateReady?.(value => showUpdate(value?.version));
+  window.jot.updateState?.().then(value => showUpdate(value?.readyVersion)).catch(() => {});
   const bootstrap = await window.jot.bootstrap();
   Object.assign(state, bootstrap);
   syncControls();

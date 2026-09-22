@@ -103,7 +103,7 @@ app.whenReady().then(async () => {
   if (process.env.JOT_SMOKE) console.log('SMOKE: services ready');
   mainWindow.webContents.send('services:ready');
   if (app.isPackaged && !process.env.JOT_TEST_PROFILE) {
-    require('./updates').startUpdates({ updater: require('electron-updater').autoUpdater, onStatus: () => updateTray(), onEvent: (event, detail) => log.info('updates', detail ? `${event}: ${detail}` : event) });
+    require('./updates').startUpdates({ updater: require('electron-updater').autoUpdater, onStatus: () => updateTray(), onEvent: (event, detail) => { log.info('updates', detail ? `${event}: ${detail}` : event); if (event === 'update-downloaded') mainWindow?.webContents.send('update:ready', { version: detail }); } });
   }
   if (process.env.JOT_SMOKE) {
     await require('../../scripts/smoke').run({ mainWindow, hudWindow, services, storage, sessions, captureConsoleErrors });
@@ -155,6 +155,12 @@ function createMainWindow() {
     }
   });
   mainWindow.on('blur', endShortcutRecording);
+}
+
+function installUpdate() {
+  if (!require('./updates').updateState().readyVersion) return false;
+  isQuitting = true;
+  return require('./updates').installUpdate();
 }
 
 function endShortcutRecording() {
@@ -233,7 +239,7 @@ function updateTray() {
     { label: 'Woordenboek', click: () => showMainWindow('dictionary') },
     { label: 'Instellingen', click: () => showMainWindow('general') },
     { label: require('./updates').updateStatus(), enabled: false },
-    { label: 'Controleren op updates', click: () => require('./updates').checkUpdates() },
+    require('./updates').updateState().readyVersion ? { label: 'Opnieuw starten en bijwerken', click: installUpdate } : { label: 'Controleren op updates', click: () => require('./updates').checkUpdates() },
     { type: 'separator' },
     { label: 'Afsluiten', click: () => app.quit() }
   ]));
@@ -328,6 +334,8 @@ function registerIpc() {
     positionHud(); hudWindow.showInactive();
     return publicSettings();
   });
+  handle('update:state', () => require('./updates').updateState());
+  handle('update:install', () => installUpdate());
   handle('shortcut:record', (_event, enabled) => {
     if (enabled === true) {
       if (sessions.current || services?.active()) throw new Error('Stop eerst de opname.');
