@@ -15,7 +15,7 @@ function sanitizeSettingsPatch(patch = {}) {
     meetingAudioApp: ['desktop-filtered','chrome','edge','brave','opera','teams','zoom','whatsapp'],
     language: ['auto', 'nl-NL', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'es-ES'],
     writingStyle: ['natural', 'concise', 'formal', 'code'], appLanguage: ['nl', 'en'],
-    hudPosition: ['left', 'center', 'right']
+    hudPosition: ['left', 'center', 'right'], duckOtherAudio: ['off', 'soft', 'mute']
   })) if (choices.includes(patch[key])) clean[key] = patch[key];
   for (const key of ['audioRetentionDays', 'meetingAudioRetentionDays']) {
     if (patch[key] !== undefined && [0, 1, 7, 30, 90].includes(Number(patch[key]))) clean[key] = Number(patch[key]);
@@ -40,4 +40,6 @@ function resolveMeetingAudioApp(requested, saved, diagnostic = false) {
   if (requested !== undefined && !choices.includes(requested)) throw Error('Kies alle apps zonder muziekapps, of een specifieke meeting-app.');
   return requested || (choices.includes(saved) ? saved : 'desktop-filtered');
 }
-module.exports = { sanitizeSettingsPatch, resolveMeetingAudioApp };
+// Playback level (percentage) for other apps while TakkieAI listens; null leaves them alone.
+function duckLevel(value) { return { soft: 20, mute: 0 }[value] ?? null; }
+module.exports = { sanitizeSettingsPatch, resolveMeetingAudioApp, duckLevel };

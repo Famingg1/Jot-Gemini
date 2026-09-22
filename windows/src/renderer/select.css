@@ -1,0 +1,21 @@
+/* Custom dropdown: the native <select> stays hidden as the source of truth, see select-ui.js. */
+.select-native { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important; padding: 0 !important; border: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0); opacity: 0; pointer-events: none; }
+.select-trigger { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 38px; width: max-content; min-width: 180px; max-width: 100%; padding: 6px 36px 6px 13px; border: 1px solid var(--stroke-2, var(--outline)); border-radius: 10px; background: var(--glass-2, var(--surface)); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background 140ms var(--ease), border-color 140ms var(--ease); }
+.select-trigger:hover { background: var(--glass-3, var(--surface-2)); }
+.select-trigger.is-open { border-color: var(--accent, var(--primary)); box-shadow: 0 0 0 3px var(--primary-soft); }
+.select-trigger:disabled { opacity: .5; cursor: default; }
+/* No shrink: a label that fits must never be ellipsized by sub-pixel rounding; only labels wider than the trigger get cut. */
+.select-trigger .select-value { flex: 0 0 auto; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.select-trigger > svg { position: absolute; right: 11px; top: 50%; width: 16px; height: 16px; margin-top: -8px; color: var(--ink-soft); transition: transform 160ms var(--ease); }
+.select-trigger.is-open > svg { transform: rotate(180deg); }
+.tool-form .select-trigger, .audio-box .select-trigger { width: auto; }
+.tool-form label > .select-trigger { display: flex; width: 100%; }
+.select-menu { position: fixed; inset: auto; margin: 0; padding: 6px; width: max-content; max-width: calc(100vw - 16px); max-height: 320px; overflow: auto; border: 1px solid var(--stroke-2, var(--outline)); border-radius: 12px; background: var(--dialog, var(--surface)); color: var(--ink); box-shadow: 0 18px 50px rgba(0, 0, 0, .35); backdrop-filter: blur(24px) saturate(140%); opacity: 1; transform: translateY(0); transition: opacity 140ms var(--ease), transform 160ms var(--ease), overlay 160ms allow-discrete, display 160ms allow-discrete; }
+@starting-style { .select-menu:popover-open { opacity: 0; transform: translateY(-5px); } .select-menu.opens-up:popover-open { transform: translateY(5px); } }
+.select-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 8px; font-size: 14px; white-space: nowrap; color: var(--ink); cursor: pointer; }
+.select-option.is-active { background: var(--glass-2, var(--surface-2)); }
+.select-option[aria-selected="true"] { color: var(--accent, var(--primary)); font-weight: 600; }
+.select-option[aria-disabled="true"] { opacity: .45; cursor: default; }
+.select-check { display: grid; place-items: center; width: 16px; height: 16px; }
+.select-check svg { width: 16px; height: 16px; }
+html[data-theme=light] .select-menu { box-shadow: 0 18px 50px rgba(27, 18, 38, .2); }

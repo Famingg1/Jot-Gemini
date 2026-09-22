@@ -11,7 +11,7 @@ const { NativeHelper } = require('./native-helper');
 const { SessionManager } = require('./session-manager');
 const { validateKey, normalizeError } = require('./gemini');
 const { validateElevenLabsKey, normalizeElevenLabsError } = require('./elevenlabs');
-const { sanitizeSettingsPatch } = require('./settings');
+const { sanitizeSettingsPatch, duckLevel } = require('./settings');
 const { createDesktopServices } = require('./desktop-services');
 const { dockBounds, nearestAnchor } = require('./hud-layout');
 let hudDrag = null;
@@ -84,7 +84,9 @@ app.whenReady().then(async () => {
   sessions = new SessionManager({ storage, nativeHelper, clipboard });
   sessions.on('state', (state) => {
     if (['error', 'offline', 'clipboard', 'secure'].includes(state.state)) log.warn('dictation', `${state.state}: ${state.message || ''}`);
-    nativeHelper.setDictating(['starting', 'listening', 'locked'].includes(state.state));
+    const listening = ['starting', 'listening', 'locked'].includes(state.state);
+    nativeHelper.setDictating(listening);
+    nativeHelper.duck(listening ? duckLevel(storage.settings.duckOtherAudio) : null);
     if (!services?.active()) hudWindow?.webContents.send('hud:state', state);
     mainWindow?.webContents.send('dictation:state', state);
     updateTray();

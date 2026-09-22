@@ -49,6 +49,7 @@ function syncControls() {
   byId('smart-toggle').checked = settings.smartTranscription;
   byId('language-select').value = settings.language;
   byId('sounds-toggle').checked = settings.sounds;
+  byId('duck-select').value = settings.duckOtherAudio || 'mute';
   byId('hud-position').value = settings.hudPosition || 'center';
   byId('retention-select').value = String(settings.audioRetentionDays);
   byId('model-input').value = settings.model;
@@ -294,6 +295,7 @@ function bindEvents() {
     ['language-select', 'change', () => ({ language: byId('language-select').value })],
     ['microphone-select', 'change', () => ({ microphoneId: byId('microphone-select').value })],
     ['sounds-toggle', 'change', () => ({ sounds: byId('sounds-toggle').checked })],
+    ['duck-select', 'change', () => ({ duckOtherAudio: byId('duck-select').value })],
     ['hud-position', 'change', () => ({ hudPosition: byId('hud-position').value })],
     ['retention-select', 'change', () => ({ audioRetentionDays: Number(byId('retention-select').value) })],
     ['model-input', 'change', () => ({ model: byId('model-input').value.trim() || 'gemini-3.5-transcribe' })]

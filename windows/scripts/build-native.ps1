@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $source = Resolve-Path (Join-Path $PSScriptRoot "..\native\JotNativeHelper.cs")
 $shortcutSource = Resolve-Path (Join-Path $PSScriptRoot "..\native\ShortcutState.cs")
+$duckSource = Resolve-Path (Join-Path $PSScriptRoot "..\native\AudioDuck.cs")
 $outputDirectory = Join-Path $PSScriptRoot "..\native\bin"
 $output = Join-Path $outputDirectory "JotNativeHelper.exe"
 $compiler = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -17,7 +18,7 @@ if (-not $automationClient -or -not $automationTypes) {
 }
 
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
-& $compiler /nologo /target:exe /optimize+ "/out:$output" /reference:System.dll /reference:System.Core.dll "/reference:$automationClient" "/reference:$automationTypes" $source $shortcutSource
+& $compiler /nologo /target:exe /optimize+ "/out:$output" /reference:System.dll /reference:System.Core.dll "/reference:$automationClient" "/reference:$automationTypes" $source $shortcutSource $duckSource
 if ($LASTEXITCODE -ne 0) {
     throw "Native helper compilation failed with exit code $LASTEXITCODE."
 }

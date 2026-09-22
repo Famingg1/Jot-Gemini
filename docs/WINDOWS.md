@@ -12,9 +12,7 @@ In your own Google Cloud project enable Calendar API and create a **Desktop app*
 
 ### Local MCP and custom connections
 
-Explicitly enable sharing on individual meeting notes. Settings → MCP copies a stdio configuration for a local client and can run a real connection test. The five tools list/search shared notes and read meeting details, transcripts and action items. Raw audio, unshared notes and provider credentials are excluded. Cloud-only clients cannot directly reach a local stdio server.
-
-Custom stdio and HTTPS MCP connectors can be configured and inspected. Headers and environment secrets are encrypted, commands are executed as an executable plus arguments without a shell, and tool calls require an explicit confirmed action. Meeting content never automatically invokes tools.
+Since 0.4.30 the MCP and Vibe coding pages are no longer shown in Settings, and meeting notes can no longer be shared through the note view. The local MCP server module and the connector storage remain in the code base, but without a shared note nothing is reachable through them. Earlier saved coding profiles and connectors stay in `settings.json` untouched.
 
 ### Data and verification
 
@@ -50,7 +48,7 @@ Audio is captured as 16-bit mono PCM and finalized as WAV. PCM is flushed to the
 
 ## Local data
 
-Windows stores app data below Electron's per-user `userData` directory. The internal package identity remains `jot-windows` for compatibility; the exact data directory is included in Settings → MCP's generated configuration. Renaming the visible app does not intentionally migrate or delete existing data:
+Windows stores app data below Electron's per-user `userData` directory. The internal package identity remains `jot-windows` for compatibility; the exact data directory is included in the diagnostics report (Settings → Geavanceerd → Diagnose kopiëren). Renaming the visible app does not intentionally migrate or delete existing data:
 
 - `settings.json` — non-secret preferences.
 - `gemini-key.bin` — the API key encrypted with Electron `safeStorage`, backed by Windows user-scoped protection.

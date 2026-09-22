@@ -30,3 +30,12 @@ test('native policy excludes music descendants and ancestors without excluding b
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'takkie-audio-policy-')),exe=path.join(dir,'test.exe');
  try{execFileSync(path.join(process.env.WINDIR,'Microsoft.NET/Framework64/v4.0.30319/csc.exe'),['/nologo','/target:exe','/platform:x64','/main:AudioPolicyTests','/out:'+exe,path.resolve(__dirname,'../native/ProcessAudio.cs'),path.resolve(__dirname,'../native/AudioMixer.cs'),path.resolve(__dirname,'fixtures/AudioPolicyTests.cs')],{windowsHide:true});assert.match(execFileSync(exe,[],{windowsHide:true,encoding:'utf8'}),/Music policy passed/);}finally{if(fs.existsSync(exe))fs.unlinkSync(exe);fs.rmdirSync(dir);}
 });
+test('other audio is lowered to a percentage while listening and left alone when turned off',()=>{
+ const {duckLevel,sanitizeSettingsPatch}=require('../src/main/settings');
+ assert.equal(duckLevel('mute'),0);assert.equal(duckLevel('soft'),20);assert.equal(duckLevel('off'),null);assert.equal(duckLevel(undefined),null);
+ assert.equal(sanitizeSettingsPatch({duckOtherAudio:'soft'}).duckOtherAudio,'soft');
+ assert.equal(sanitizeSettingsPatch({duckOtherAudio:'loud'}).duckOtherAudio,undefined);
+ assert.equal(require('../src/main/storage').defaults.duckOtherAudio,'mute');
+ const sent=[];const helper=new (require('../src/main/native-helper').NativeHelper)({appPath:'.',resourcesPath:'.',packaged:false});helper.send=command=>{sent.push(command);return true;};
+ helper.duck(0);helper.duck(20);helper.duck(null);assert.deepEqual(sent,['DUCK 0','DUCK 20','DUCK -']);
+});

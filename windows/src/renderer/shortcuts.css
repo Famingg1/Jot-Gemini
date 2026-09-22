@@ -1,1 +1,34 @@
-.shortcut-group>div{width:100%;min-width:0}.shortcut-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}.shortcut-row kbd{margin-right:auto;max-width:100%;overflow-wrap:anywhere;font:13px 'Segoe UI',sans-serif}.shortcut-group button{border:1px solid #d8d5cd;border-radius:7px;padding:7px 10px;background:#fff;color:#171717;font:13px 'Segoe UI',sans-serif;cursor:pointer}.shortcut-group button:hover{background:#eeeae3}.shortcut-group button:disabled{opacity:.45;cursor:default}#shortcut-recorder{margin-top:12px;padding:12px;border-radius:8px;background:#e9e7e0}#shortcut-preview{color:#171717;margin:0 0 10px}#shortcut-error{color:#9e2626;font-size:13px}html[data-theme=dark] .shortcut-group button{background:#303030;border-color:#555;color:#fff}html[data-theme=dark] #shortcut-recorder{background:#303030}html[data-theme=dark] #shortcut-preview{color:#fff}html[data-theme=dark] #shortcut-error{color:#ffaaaa}
+/* Shortcut cards: copy on the left, one slot per key combination on the right. */
+.shortcut-panel { display: grid; gap: 10px; padding: 19px 2px; border-bottom: 1px solid var(--stroke, var(--outline)); }
+.shortcut-head { margin-bottom: 6px; }
+.shortcut-head h2, .shortcut-head p { margin: 0; }
+.shortcut-head p { margin-top: 4px; max-width: 650px; }
+.shortcut-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 18px 20px; border: 1px solid var(--stroke, var(--outline)); border-radius: 14px; background: var(--glass, var(--surface-2)); }
+.shortcut-copy h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--ink); }
+.shortcut-copy p { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.shortcut-slots { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 200px; }
+.shortcut-slot { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 6px 8px 6px 10px; border: 1px solid var(--stroke-2, var(--outline)); border-radius: 11px; background: var(--glass-2, var(--surface)); }
+.shortcut-slot.is-static { color: var(--ink-soft); }
+.slot-hint { font-size: 13px; color: var(--ink-soft); }
+.slot-keys { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.slot-keys i { font-style: normal; color: var(--ink-faint, var(--ink-soft)); font-size: 12px; }
+.shortcut-slot kbd { display: inline-flex; align-items: baseline; gap: 3px; padding: 6px 9px; border-radius: 8px; background: var(--glass-3, var(--surface-3)); border: 1px solid var(--stroke-2, var(--outline)); box-shadow: none; color: var(--ink); font: 600 13px/1 "Segoe UI Variable Text", "Segoe UI", sans-serif; }
+.shortcut-slot kbd small { font-size: 9px; font-weight: 700; color: var(--ink-faint, var(--ink-soft)); letter-spacing: .04em; }
+.slot-placeholder { font-size: 13px; color: var(--ink-faint, var(--ink-soft)); }
+.slot-actions { display: inline-flex; gap: 2px; margin-left: auto; padding-left: 6px; }
+.slot-icon { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.slot-icon svg { width: 16px; height: 16px; }
+.slot-icon:hover { background: var(--glass-3, var(--surface-3)); color: var(--ink); }
+.slot-icon:disabled { opacity: .35; cursor: default; background: transparent; }
+.slot-icon.is-save { color: var(--accent, var(--primary)); }
+.slot-icon.is-save:not(:disabled):hover { background: var(--primary-soft); }
+.shortcut-add { display: grid; width: 46px; height: 46px; place-items: center; align-self: flex-end; border: 1px dashed var(--stroke-2, var(--outline)); border-radius: 11px; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.shortcut-add svg { width: 18px; height: 18px; }
+.shortcut-add:hover { background: var(--glass-2, var(--surface)); color: var(--ink); }
+.shortcut-add:disabled { opacity: .35; cursor: default; background: transparent; }
+.shortcut-slot.is-recording { border-color: var(--accent, var(--primary)); box-shadow: 0 0 0 3px var(--primary-soft); animation: slot-pulse 1.6s ease-in-out infinite; }
+@keyframes slot-pulse { 50% { box-shadow: 0 0 0 5px transparent; } }
+#shortcut-error { margin: 0; font-size: 13px; color: var(--error); }
+#shortcut-error:empty { display: none; }
+.shortcut-foot { display: flex; justify-content: flex-end; margin-top: 2px; }
+@media (max-width: 700px) { .shortcut-card { grid-template-columns: 1fr; gap: 12px; } .shortcut-slots { min-width: 0; } }

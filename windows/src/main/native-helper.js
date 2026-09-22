@@ -86,6 +86,9 @@ class NativeHelper extends EventEmitter {
 
   setDictating(active) { return this.send(`ACTIVE ${active ? 1 : 0}`); }
 
+  // Lowers other apps' playback to a percentage while listening; null puts their levels back.
+  duck(level) { return this.send(`DUCK ${Number.isInteger(level) ? level : '-'}`); }
+
   stop() {
     if (!this.process) return;
     const child = this.process;

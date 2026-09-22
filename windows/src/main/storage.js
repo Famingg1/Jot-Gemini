@@ -12,6 +12,7 @@ const defaults = Object.freeze({
   noteHotkeys: null,
   smartTranscription: true,
   sounds: true,
+  duckOtherAudio: 'mute',
   showIdleIndicator: true,
   hudPosition: 'center',
   hudDisplayId: '',

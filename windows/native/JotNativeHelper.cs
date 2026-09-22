@@ -134,6 +134,13 @@ internal static class JotNativeHelper
                 {
                     dictating = parts[1] == "1";
                 }
+                else if (command == "DUCK" && parts.Length > 1)
+                {
+                    // "DUCK 0".."DUCK 100" lowers other apps' playback to that percentage, "DUCK -" restores.
+                    int level;
+                    int count = AudioDuck.Apply(int.TryParse(parts[1], out level) ? Math.Max(0, Math.Min(100, level)) : -1);
+                    Emit("duck", parts[1], count.ToString(), 0);
+                }
                 else if (command == "TYPE" && parts.Length > 1)
                 {
                     // Always insert into whatever currently has focus.
@@ -151,6 +158,7 @@ internal static class JotNativeHelper
                 }
                 else if (command == "QUIT")
                 {
+                    AudioDuck.Apply(-1);
                     PostQuitMessage(0);
                     return;
                 }
@@ -160,6 +168,8 @@ internal static class JotNativeHelper
                 Emit("error", "command", ex.Message, 0);
             }
         }
+        // TakkieAI went away mid-dictation: never leave other apps muted.
+        AudioDuck.Apply(-1);
     }
 
     private static bool SendUnicode(string text)
